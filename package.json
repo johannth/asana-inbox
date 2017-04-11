@@ -1,0 +1,21 @@
+{
+  "name": "asana-inbox",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "bootstrap": "concurrently \"yarn run bootstrap-server\" \"yarn run bootstrap-client\"",
+    "bootstrap-server": "cd server && yarn install",
+    "bootstrap-client": "cd client && yarn install",
+    "start-dev": "source .env && concurrently \"yarn run start-server-dev\" \"yarn run start-client-dev\"",
+    "start-server-dev": "cd server && yarn start-dev",
+    "start-client-dev": "cd client && yarn start",
+    "deploy": "yarn deploy-server && yarn deploy-client",
+    "deploy-server": "git push heroku `git subtree split --prefix server master`:master --force",
+    "deploy-client": "source .env && cd client && yarn build && yarn deploy",
+    "test-client": "cd client && yarn test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^3.1.0"
+  }
+}
