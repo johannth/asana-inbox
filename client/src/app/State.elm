@@ -1,14 +1,7 @@
 module State exposing (..)
 
-import Dict exposing (Dict)
-import Date exposing (Date)
-import Api
 import Types exposing (..)
 import Navigation
-import Http
-import Set
-import Task
-import Time
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
