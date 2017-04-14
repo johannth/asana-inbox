@@ -3,11 +3,15 @@
 }
 
 body {
-  font-family: Tahoma, Geneva, sans-serif;
+  font-family: "proxima-nova", "Helvetica Neue", "Helvetica", Arial, sans-serif;
 }
 
 #content {
   margin: 0 auto;
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-bottom: 50px;
 }
 
 #title {
@@ -30,26 +34,79 @@ body {
 }
 
 .tasksHeader {
-  cursor: pointer
-}
-
-.task {
-  height: 25px;
-  border-bottom: 1px solid gray;
+  cursor: pointer;
+  margin-top: 5px;
+  margin-bottom: 10px;
   display: flex;
 }
 
+.tasksHeader:hover {
+  color: rgb(2, 206, 255);
+  fill: rgb(2, 206, 255);
+}
+
+.tasksHeaderTriangleIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.tasksHeaderTriangleIcon.closed path {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.task {
+  height: 28px;
+  border-bottom: 1px solid rgb(225, 226, 228);
+  display: flex;
+}
+
+.taskDragHandle {
+  width: 16px;
+  height: 16px;
+  margin: auto 4px auto 0px;
+  fill: rgb(225, 226, 228);
+  visibility: hidden;
+  cursor: move;
+}
+
+.task:hover .taskDragHandle {
+  visibility: visible;
+}
+
 .taskCompletionButton {
-  margin-right: 5px;
   cursor: pointer;
+  border: 1px solid rgb(225, 226, 228);
+  border-radius: 9px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  margin: auto 9px auto 0px;
+}
+
+.taskCompletionButton svg
+{
+  margin: auto;
+  fill: rgb(225, 226, 228);
+  width: 12px;
+  height: 12px;
+}
+
+.taskTitle {
+  border: 0;
+  padding: 0px;
+}
+
+.taskTitle:focus{
+  outline: none;
 }
 
 .fakeDropView {
-  height: 25px;
+  height: 15px;
 }
 
 .onTop {
-  border-top: 2px solid black;
+  border-top: 1px solid black;
 }
 
 #footer {

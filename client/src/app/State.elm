@@ -42,6 +42,11 @@ mockTasks =
     Dict.fromList [ ( mockTask1.id, mockTask1 ), ( mockTask2.id, mockTask2 ), ( mockTask3.id, mockTask3 ) ]
 
 
+titleInputId : String -> String
+titleInputId taskId =
+    "taskTitle" ++ taskId
+
+
 initDatePickers : List AsanaTask -> ( Dict String DatePicker.DatePicker, List (Cmd Msg) )
 initDatePickers tasks =
     let
@@ -170,16 +175,16 @@ update msg model =
 
         AddNewTask index ->
             let
-                tempId =
+                localId =
                     toString (Array.length model.taskList)
 
                 task =
-                    AsanaTask tempId Nothing "" Nothing
+                    AsanaTask localId Nothing "" Nothing
 
                 taskList =
                     insertTaskAfterIndex index task.id model.taskList
             in
-                { model | tasks = Dict.insert task.id task model.tasks, taskList = taskList } ! [ Task.attempt FocusResult (focus tempId) ]
+                { model | tasks = Dict.insert task.id task model.tasks, taskList = taskList } ! [ Task.attempt FocusResult (focus (titleInputId task.id)) ]
 
         ToDatePicker taskId msg ->
             case ( Dict.get taskId model.datePickers, Dict.get taskId model.tasks ) of

@@ -1,6 +1,8 @@
 module View exposing (rootView)
 
 import Html exposing (..)
+import Svg
+import Svg.Attributes
 import Date exposing (Date)
 import DatePicker
 import Html.Attributes exposing (..)
@@ -10,6 +12,7 @@ import Types exposing (..)
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
 import Json.Decode as Json
+import State exposing (titleInputId)
 
 
 expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( AsanaTask, DatePicker.DatePicker )
@@ -81,7 +84,20 @@ taskListView hideOnEmpty category title allTasks maybeDropId expanded =
             text ""
         else
             div []
-                [ h2 [ class "tasksHeader", onClick (ToggleExpanded category) ] [ text title ]
+                [ h2
+                    [ class "tasksHeader", onClick (ToggleExpanded category) ]
+                    [ div
+                        [ class
+                            ("tasksHeaderTriangleIcon"
+                                ++ if not expanded then
+                                    " closed"
+                                   else
+                                    ""
+                            )
+                        ]
+                        [ triangle ]
+                    , text title
+                    ]
                 , ul [ class "tasks" ]
                     (if expanded then
                         taskViews ++ [ dropView ]
@@ -89,6 +105,13 @@ taskListView hideOnEmpty category title allTasks maybeDropId expanded =
                         [ dropView ]
                     )
                 ]
+
+
+triangle : Html Msg
+triangle =
+    Svg.svg [ Svg.Attributes.viewBox "0 0 32 32" ]
+        [ Svg.path [ Svg.Attributes.d "M7.207,13.707L16.5,23l9.293-9.293c0.63-0.63,0.184-1.707-0.707-1.707H7.914C7.023,12,6.577,13.077,7.207,13.707z" ] []
+        ]
 
 
 classNameIfOnTop : Maybe TaskListIndex -> TaskListIndex -> String
@@ -112,20 +135,37 @@ taskView datePicker maybeDropId index task =
     in
         li
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
-            [ taskCompletionButton task.id
+            [ div [ class "taskDragHandle" ] [ dragHandle ]
+            , taskCompletionButton task.id
             , taskTitleView index task.id task.title
             , taskDatePickerView datePicker task.id task.dueDate
             ]
 
 
+dragHandle : Html Msg
+dragHandle =
+    Svg.svg [ Svg.Attributes.viewBox "0 0 32 32" ]
+        [ Svg.path [ Svg.Attributes.d "M 14 5.5 a 3 3 0 1 1 -3 -3 A 3 3 0 0 1 14 5.5 Z m 7 3 a 3 3 0 1 0 -3 -3 A 3 3 0 0 0 21 8.5 Z m -10 4 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 12.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 12.5 Z m -10 10 a 3 3 0 1 0 3 3 A 3 3 0 0 0 11 22.5 Z m 10 0 a 3 3 0 1 0 3 3 A 3 3 0 0 0 21 22.5 Z" ] []
+        ]
+
+
 taskCompletionButton : String -> Html Msg
 taskCompletionButton taskId =
-    div [ class "taskCompletionButton", onClick (CompleteTask taskId) ] [ text "X" ]
+    div [ class "taskCompletionButton", onClick (CompleteTask taskId) ]
+        [ checkMark
+        ]
+
+
+checkMark : Html Msg
+checkMark =
+    Svg.svg [ Svg.Attributes.viewBox "0 0 32 32" ]
+        [ Svg.polygon [ Svg.Attributes.points "27.672,4.786 10.901,21.557 4.328,14.984 1.5,17.812 10.901,27.214 30.5,7.615 " ] []
+        ]
 
 
 taskTitleView : TaskListIndex -> String -> String -> Html Msg
 taskTitleView index taskId title =
-    input [ id taskId, onInput (EditTaskTitle taskId), onEnterPress (AddNewTask index), value title ] []
+    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskTitle taskId), onEnterPress (AddNewTask index), value title ] []
 
 
 taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
