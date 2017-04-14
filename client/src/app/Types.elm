@@ -1,9 +1,10 @@
 module Types exposing (..)
 
 import Dict exposing (Dict)
-import Http
 import Date exposing (Date)
 import Navigation
+import Html5.DragDrop as DragDrop
+import Array exposing (Array)
 
 
 type alias Project =
@@ -27,20 +28,23 @@ type TaskCategory
     | Later
 
 
+type alias DragDropIndex =
+    ( TaskCategory, Int )
+
+
 type alias Model =
     { apiHost : String
     , tasks : Dict String Task
-    , newTasks : List String
-    , todayTasks : List String
-    , upcomingTasks : List String
-    , laterTasks : List String
+    , taskList : Array ( TaskCategory, String )
     , buildInfo : BuildInfo
+    , dragDrop : DragDrop.Model DragDropIndex DragDropIndex
     }
 
 
 type Msg
     = Void
     | UrlChange Navigation.Location
+    | DragDropMsg (DragDrop.Msg DragDropIndex DragDropIndex)
 
 
 mockProject1 =
@@ -56,15 +60,15 @@ mockProjects =
 
 
 mockTask1 =
-    Task "1" (Just mockProject1) "A simple task" Nothing
+    Task "1" (Just mockProject1) "Task 1" Nothing
 
 
 mockTask2 =
-    Task "2" (Just mockProject2) "A complex task" Nothing
+    Task "2" (Just mockProject2) "Task 2" Nothing
 
 
 mockTask3 =
-    Task "3" Nothing "A task without a project" Nothing
+    Task "3" Nothing "Task 3" Nothing
 
 
 mockTasks =
@@ -75,11 +79,9 @@ emptyModel : Flags -> Model
 emptyModel flags =
     { apiHost = flags.apiHost
     , tasks = mockTasks
-    , newTasks = [ mockTask3.id ]
-    , todayTasks = [ mockTask1.id, mockTask2.id ]
-    , upcomingTasks = []
-    , laterTasks = []
+    , taskList = Array.fromList [ ( New, mockTask1.id ), ( Today, mockTask2.id ), ( Today, mockTask3.id ) ]
     , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
+    , dragDrop = DragDrop.init
     }
 
 

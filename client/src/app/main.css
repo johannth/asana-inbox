@@ -23,6 +23,24 @@ body {
   margin: auto;
 }
 
+.tasks {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.task {
+  height: 25px;
+  border-bottom: 1px solid gray;
+}
+
+.fakeDropView {
+  height: 25px;
+}
+
+.onTop {
+  border-top: 2px solid black;
+}
 
 #footer {
   border-top: 1px solid black;

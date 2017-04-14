@@ -4,6 +4,7 @@ import Types exposing (..)
 import State
 import View
 import Navigation
+import Subscriptions
 
 
 -- Hot Loading Requires the program to accept flags
@@ -15,5 +16,5 @@ main =
         { init = State.init
         , view = View.rootView
         , update = State.update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = Subscriptions.subscriptions
         }
