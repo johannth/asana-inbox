@@ -35,10 +35,10 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
         div [ id "content" ]
             [ h1 [ id "title" ] [ text "Asana Inbox" ]
             , div [ id "body" ]
-                [ taskListView New "New" allTasksWithIndexAndCategory dropId expanded.new
-                , taskListView Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-                , taskListView Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-                , taskListView Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+                [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
+                , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+                , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+                , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
                 ]
             , div [ id "footer" ]
                 [ buildInfoView buildInfo
@@ -46,8 +46,8 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
             ]
 
 
-taskListView : TaskCategory -> String -> List ( Int, TaskCategory, Task ) -> Maybe DragDropIndex -> Bool -> Html Msg
-taskListView category title allTasks maybeDropId expanded =
+taskListView : Bool -> TaskCategory -> String -> List ( Int, TaskCategory, Task ) -> Maybe DragDropIndex -> Bool -> Html Msg
+taskListView hideOnEmpty category title allTasks maybeDropId expanded =
     let
         tasksInThisCategory =
             List.filter (\( _, taskCategory, t ) -> taskCategory == category) allTasks
@@ -58,15 +58,18 @@ taskListView category title allTasks maybeDropId expanded =
         dropView =
             fakeDropView maybeDropId category ((List.length tasksInThisCategory) + 1)
     in
-        div []
-            [ h2 [ class "tasksHeader", onClick (ToggleExpanded category) ] [ text title ]
-            , ul [ class "tasks" ]
-                (if expanded then
-                    taskViews ++ [ dropView ]
-                 else
-                    [ dropView ]
-                )
-            ]
+        if hideOnEmpty && List.length tasksInThisCategory == 0 then
+            text ""
+        else
+            div []
+                [ h2 [ class "tasksHeader", onClick (ToggleExpanded category) ] [ text title ]
+                , ul [ class "tasks" ]
+                    (if expanded then
+                        taskViews ++ [ dropView ]
+                     else
+                        [ dropView ]
+                    )
+                ]
 
 
 classNameIfOnTop : Maybe DragDropIndex -> TaskCategory -> Int -> String
