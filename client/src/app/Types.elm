@@ -55,6 +55,7 @@ type Msg
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg DragDropIndex DragDropIndex)
     | ToggleExpanded TaskCategory
+    | CompleteTask String
 
 
 mockProject1 =

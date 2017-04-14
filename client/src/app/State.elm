@@ -66,6 +66,9 @@ update msg model =
         ToggleExpanded taskCategory ->
             { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
 
+        CompleteTask completedTaskId ->
+            { model | taskList = Array.filter (\( _, taskId ) -> taskId /= completedTaskId) model.taskList } ! []
+
         DragDropMsg msg_ ->
             let
                 ( model_, result ) =

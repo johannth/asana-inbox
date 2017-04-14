@@ -36,6 +36,12 @@ body {
 .task {
   height: 25px;
   border-bottom: 1px solid gray;
+  display: flex;
+}
+
+.taskCompletionButton {
+  margin-right: 5px;
+  cursor: pointer;
 }
 
 .fakeDropView {

@@ -93,8 +93,14 @@ taskView maybeDropId category index task =
     in
         li
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg ( category, index ) ++ DragDrop.droppable DragDropMsg ( category, index ))
-            [ text task.title
+            [ taskCompletionButton task.id
+            , div [] [ text task.title ]
             ]
+
+
+taskCompletionButton : String -> Html Msg
+taskCompletionButton taskId =
+    div [ class "taskCompletionButton", onClick (CompleteTask taskId) ] [ text "X" ]
 
 
 fakeDropView : Maybe DragDropIndex -> TaskCategory -> Int -> Html Msg
