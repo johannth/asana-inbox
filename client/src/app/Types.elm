@@ -28,6 +28,14 @@ type TaskCategory
     | Later
 
 
+type alias ExpandedState =
+    { new : Bool
+    , today : Bool
+    , upcoming : Bool
+    , later : Bool
+    }
+
+
 type alias DragDropIndex =
     ( TaskCategory, Int )
 
@@ -38,6 +46,7 @@ type alias Model =
     , taskList : Array ( TaskCategory, String )
     , buildInfo : BuildInfo
     , dragDrop : DragDrop.Model DragDropIndex DragDropIndex
+    , expanded : ExpandedState
     }
 
 
@@ -45,6 +54,7 @@ type Msg
     = Void
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg DragDropIndex DragDropIndex)
+    | ToggleExpanded TaskCategory
 
 
 mockProject1 =
@@ -82,6 +92,7 @@ emptyModel flags =
     , taskList = Array.fromList [ ( New, mockTask1.id ), ( Today, mockTask2.id ), ( Today, mockTask3.id ) ]
     , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
     , dragDrop = DragDrop.init
+    , expanded = { today = True, new = True, upcoming = False, later = False }
     }
 
 

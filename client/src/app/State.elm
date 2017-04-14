@@ -38,6 +38,22 @@ placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
             tasks
 
 
+toggleExpandedState : TaskCategory -> ExpandedState -> ExpandedState
+toggleExpandedState taskCategory currentState =
+    case taskCategory of
+        Today ->
+            { currentState | today = not currentState.today }
+
+        New ->
+            { currentState | new = not currentState.new }
+
+        Upcoming ->
+            { currentState | upcoming = not currentState.upcoming }
+
+        Later ->
+            { currentState | later = not currentState.later }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -46,6 +62,9 @@ update msg model =
 
         UrlChange newLocation ->
             model ! []
+
+        ToggleExpanded taskCategory ->
+            { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
 
         DragDropMsg msg_ ->
             let

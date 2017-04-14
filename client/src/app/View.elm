@@ -2,6 +2,7 @@ module View exposing (rootView)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import Dict exposing (Dict)
 import Types exposing (..)
 import Html5.DragDrop as DragDrop
@@ -14,7 +15,7 @@ expandTasks allTasks taskIds =
 
 
 rootView : Model -> Html Msg
-rootView { taskList, tasks, dragDrop, buildInfo } =
+rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
     let
         taskCategories =
             Array.map (\( category, _ ) -> category) taskList
@@ -34,10 +35,10 @@ rootView { taskList, tasks, dragDrop, buildInfo } =
         div [ id "content" ]
             [ h1 [ id "title" ] [ text "Asana Inbox" ]
             , div [ id "body" ]
-                [ taskListView dropId New "New" allTasksWithIndexAndCategory
-                , taskListView dropId Today "Today" allTasksWithIndexAndCategory
-                , taskListView dropId Upcoming "Upcoming" allTasksWithIndexAndCategory
-                , taskListView dropId Later "Later" allTasksWithIndexAndCategory
+                [ taskListView New "New" allTasksWithIndexAndCategory dropId expanded.new
+                , taskListView Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+                , taskListView Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+                , taskListView Later "Later" allTasksWithIndexAndCategory dropId expanded.later
                 ]
             , div [ id "footer" ]
                 [ buildInfoView buildInfo
@@ -45,18 +46,26 @@ rootView { taskList, tasks, dragDrop, buildInfo } =
             ]
 
 
-taskListView : Maybe DragDropIndex -> TaskCategory -> String -> List ( Int, TaskCategory, Task ) -> Html Msg
-taskListView maybeDropId category title allTasks =
+taskListView : TaskCategory -> String -> List ( Int, TaskCategory, Task ) -> Maybe DragDropIndex -> Bool -> Html Msg
+taskListView category title allTasks maybeDropId expanded =
     let
         tasksInThisCategory =
             List.filter (\( _, taskCategory, t ) -> taskCategory == category) allTasks
 
         taskViews =
-            (List.map (\( index, _, task ) -> taskView maybeDropId category index task) tasksInThisCategory) ++ [ fakeDropView maybeDropId category ((List.length tasksInThisCategory) + 1) ]
+            (List.map (\( index, _, task ) -> taskView maybeDropId category index task) tasksInThisCategory)
+
+        dropView =
+            fakeDropView maybeDropId category ((List.length tasksInThisCategory) + 1)
     in
         div []
-            [ h2 [] [ text title ]
-            , ul [ class "tasks" ] taskViews
+            [ h2 [ class "tasksHeader", onClick (ToggleExpanded category) ] [ text title ]
+            , ul [ class "tasks" ]
+                (if expanded then
+                    taskViews ++ [ dropView ]
+                 else
+                    [ dropView ]
+                )
             ]
 
 
