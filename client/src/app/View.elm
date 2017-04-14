@@ -7,9 +7,10 @@ import Dict exposing (Dict)
 import Types exposing (..)
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
+import Json.Decode as Json
 
 
-expandTasks : Dict String Task -> List String -> List Task
+expandTasks : Dict String AsanaTask -> List String -> List AsanaTask
 expandTasks allTasks taskIds =
     List.filterMap (\taskId -> Dict.get taskId allTasks) taskIds
 
@@ -46,17 +47,17 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
             ]
 
 
-taskListView : Bool -> TaskCategory -> String -> List ( Int, TaskCategory, Task ) -> Maybe DragDropIndex -> Bool -> Html Msg
+taskListView : Bool -> AsanaTaskCategory -> String -> List ( Int, AsanaTaskCategory, AsanaTask ) -> Maybe TaskListIndex -> Bool -> Html Msg
 taskListView hideOnEmpty category title allTasks maybeDropId expanded =
     let
         tasksInThisCategory =
             List.filter (\( _, taskCategory, t ) -> taskCategory == category) allTasks
 
         taskViews =
-            (List.map (\( index, _, task ) -> taskView maybeDropId category index task) tasksInThisCategory)
+            (List.map (\( index, _, task ) -> taskView maybeDropId ( category, index ) task) tasksInThisCategory)
 
         dropView =
-            fakeDropView maybeDropId category ((List.length tasksInThisCategory) + 1)
+            fakeDropView maybeDropId ( category, ((List.length tasksInThisCategory) + 1) )
     in
         if hideOnEmpty && List.length tasksInThisCategory == 0 then
             text ""
@@ -72,8 +73,8 @@ taskListView hideOnEmpty category title allTasks maybeDropId expanded =
                 ]
 
 
-classNameIfOnTop : Maybe DragDropIndex -> TaskCategory -> Int -> String
-classNameIfOnTop maybeDropId category index =
+classNameIfOnTop : Maybe TaskListIndex -> TaskListIndex -> String
+classNameIfOnTop maybeDropId ( category, index ) =
     case maybeDropId of
         Just ( dropCategory, dropIndex ) ->
             if dropCategory == category && dropIndex == index then
@@ -85,16 +86,16 @@ classNameIfOnTop maybeDropId category index =
             ""
 
 
-taskView : Maybe DragDropIndex -> TaskCategory -> Int -> Task -> Html Msg
-taskView maybeDropId category index task =
+taskView : Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
+taskView maybeDropId index task =
     let
         classNames =
-            "task" ++ (classNameIfOnTop maybeDropId category index)
+            "task" ++ (classNameIfOnTop maybeDropId index)
     in
         li
-            ([ class classNames ] ++ DragDrop.draggable DragDropMsg ( category, index ) ++ DragDrop.droppable DragDropMsg ( category, index ))
+            ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
             [ taskCompletionButton task.id
-            , taskTitleView task.id task.title
+            , taskTitleView index task.id task.title
             ]
 
 
@@ -103,19 +104,33 @@ taskCompletionButton taskId =
     div [ class "taskCompletionButton", onClick (CompleteTask taskId) ] [ text "X" ]
 
 
-taskTitleView : String -> String -> Html Msg
-taskTitleView taskId title =
-    textarea [ onInput (EditTaskTitle taskId) ] [ text title ]
+taskTitleView : TaskListIndex -> String -> String -> Html Msg
+taskTitleView index taskId title =
+    input [ id taskId, onInput (EditTaskTitle taskId), onEnterPress (AddNewTask index), value title ] []
 
 
-fakeDropView : Maybe DragDropIndex -> TaskCategory -> Int -> Html Msg
-fakeDropView maybeDropId category index =
+onEnterPress : Msg -> Attribute Msg
+onEnterPress tagger =
+    Html.Events.on "keydown"
+        (Json.map
+            (\keyCode ->
+                if keyCode == 13 then
+                    tagger
+                else
+                    Void
+            )
+            Html.Events.keyCode
+        )
+
+
+fakeDropView : Maybe TaskListIndex -> TaskListIndex -> Html Msg
+fakeDropView maybeDropId index =
     let
         classNames =
-            "fakeDropView" ++ (classNameIfOnTop maybeDropId category index)
+            "fakeDropView" ++ (classNameIfOnTop maybeDropId index)
     in
         li
-            ([ class classNames ] ++ DragDrop.droppable DragDropMsg ( category, index ))
+            ([ class classNames ] ++ DragDrop.droppable DragDropMsg index)
             []
 
 

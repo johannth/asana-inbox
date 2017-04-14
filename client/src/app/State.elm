@@ -5,6 +5,8 @@ import Navigation
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
 import Dict exposing (Dict)
+import Dom exposing (focus)
+import Task
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
@@ -19,7 +21,7 @@ init flags location =
         initialModel ! initialCommands
 
 
-placeDroppedTask : DragDropIndex -> DragDropIndex -> Array ( TaskCategory, String ) -> Array ( TaskCategory, String )
+placeDroppedTask : TaskListIndex -> TaskListIndex -> Array ( AsanaTaskCategory, String ) -> Array ( AsanaTaskCategory, String )
 placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
     case Array.get dragIndex tasks of
         Just ( _, dragTaskId ) ->
@@ -39,7 +41,19 @@ placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
             tasks
 
 
-toggleExpandedState : TaskCategory -> ExpandedState -> ExpandedState
+insertTaskAfterIndex : TaskListIndex -> String -> Array ( AsanaTaskCategory, String ) -> Array ( AsanaTaskCategory, String )
+insertTaskAfterIndex ( taskCategory, index ) taskId taskList =
+    let
+        firstHalf =
+            (Array.slice 0 (index + 1) taskList) |> Array.toList
+
+        secondHalf =
+            (Array.slice (index + 1) (Array.length taskList) taskList) |> Array.toList
+    in
+        Array.fromList (firstHalf ++ [ ( taskCategory, taskId ) ] ++ secondHalf)
+
+
+toggleExpandedState : AsanaTaskCategory -> ExpandedState -> ExpandedState
 toggleExpandedState taskCategory currentState =
     case taskCategory of
         Today ->
@@ -59,6 +73,9 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Void ->
+            model ! []
+
+        FocusResult _ ->
             model ! []
 
         UrlChange newLocation ->
@@ -81,6 +98,19 @@ update msg model =
 
                 Nothing ->
                     model ! []
+
+        AddNewTask index ->
+            let
+                tempId =
+                    toString (Array.length model.taskList)
+
+                task =
+                    AsanaTask tempId Nothing "" Nothing
+
+                taskList =
+                    insertTaskAfterIndex index task.id model.taskList
+            in
+                { model | tasks = Dict.insert task.id task model.tasks, taskList = taskList } ! [ Task.attempt FocusResult (focus tempId) ]
 
         DragDropMsg msg_ ->
             let

@@ -2,26 +2,27 @@ module Types exposing (..)
 
 import Dict exposing (Dict)
 import Date exposing (Date)
+import Dom
 import Navigation
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
 
 
-type alias Project =
+type alias AsanaProject =
     { id : String
     , name : String
     }
 
 
-type alias Task =
+type alias AsanaTask =
     { id : String
-    , project : Maybe Project
+    , project : Maybe AsanaProject
     , title : String
     , dueDate : Maybe Date
     }
 
 
-type TaskCategory
+type AsanaTaskCategory
     = New
     | Today
     | Upcoming
@@ -36,16 +37,16 @@ type alias ExpandedState =
     }
 
 
-type alias DragDropIndex =
-    ( TaskCategory, Int )
+type alias TaskListIndex =
+    ( AsanaTaskCategory, Int )
 
 
 type alias Model =
     { apiHost : String
-    , tasks : Dict String Task
-    , taskList : Array ( TaskCategory, String )
+    , tasks : Dict String AsanaTask
+    , taskList : Array ( AsanaTaskCategory, String )
     , buildInfo : BuildInfo
-    , dragDrop : DragDrop.Model DragDropIndex DragDropIndex
+    , dragDrop : DragDrop.Model TaskListIndex TaskListIndex
     , expanded : ExpandedState
     }
 
@@ -53,18 +54,20 @@ type alias Model =
 type Msg
     = Void
     | UrlChange Navigation.Location
-    | DragDropMsg (DragDrop.Msg DragDropIndex DragDropIndex)
-    | ToggleExpanded TaskCategory
+    | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
+    | ToggleExpanded AsanaTaskCategory
     | CompleteTask String
     | EditTaskTitle String String
+    | AddNewTask TaskListIndex
+    | FocusResult (Result Dom.Error ())
 
 
 mockProject1 =
-    Project "p1" "Project 1"
+    AsanaProject "p1" "Project 1"
 
 
 mockProject2 =
-    Project "p2" "Project 2"
+    AsanaProject "p2" "Project 2"
 
 
 mockProjects =
@@ -72,15 +75,15 @@ mockProjects =
 
 
 mockTask1 =
-    Task "1" (Just mockProject1) "Task 1" Nothing
+    AsanaTask "0" (Just mockProject1) "AsanaTask 1" Nothing
 
 
 mockTask2 =
-    Task "2" (Just mockProject2) "Task 2" Nothing
+    AsanaTask "1" (Just mockProject2) "AsanaTask 2" Nothing
 
 
 mockTask3 =
-    Task "3" Nothing "Task 3" Nothing
+    AsanaTask "2" Nothing "AsanaTask 3" Nothing
 
 
 mockTasks =
