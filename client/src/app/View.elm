@@ -2,7 +2,7 @@ module View exposing (rootView)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Dict exposing (Dict)
 import Types exposing (..)
 import Html5.DragDrop as DragDrop
@@ -94,13 +94,18 @@ taskView maybeDropId category index task =
         li
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg ( category, index ) ++ DragDrop.droppable DragDropMsg ( category, index ))
             [ taskCompletionButton task.id
-            , div [] [ text task.title ]
+            , taskTitleView task.id task.title
             ]
 
 
 taskCompletionButton : String -> Html Msg
 taskCompletionButton taskId =
     div [ class "taskCompletionButton", onClick (CompleteTask taskId) ] [ text "X" ]
+
+
+taskTitleView : String -> String -> Html Msg
+taskTitleView taskId title =
+    textarea [ onInput (EditTaskTitle taskId) ] [ text title ]
 
 
 fakeDropView : Maybe DragDropIndex -> TaskCategory -> Int -> Html Msg

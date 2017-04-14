@@ -4,6 +4,7 @@ import Types exposing (..)
 import Navigation
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
+import Dict exposing (Dict)
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
@@ -68,6 +69,18 @@ update msg model =
 
         CompleteTask completedTaskId ->
             { model | taskList = Array.filter (\( _, taskId ) -> taskId /= completedTaskId) model.taskList } ! []
+
+        EditTaskTitle taskId title ->
+            case Dict.get taskId model.tasks of
+                Just task ->
+                    let
+                        updatedTask =
+                            { task | title = title }
+                    in
+                        { model | tasks = Dict.insert taskId updatedTask model.tasks } ! []
+
+                Nothing ->
+                    model ! []
 
         DragDropMsg msg_ ->
             let

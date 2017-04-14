@@ -56,6 +56,7 @@ type Msg
     | DragDropMsg (DragDrop.Msg DragDropIndex DragDropIndex)
     | ToggleExpanded TaskCategory
     | CompleteTask String
+    | EditTaskTitle String String
 
 
 mockProject1 =
