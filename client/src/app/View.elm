@@ -1,6 +1,8 @@
 module View exposing (rootView)
 
 import Html exposing (..)
+import Date exposing (Date)
+import DatePicker
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Dict exposing (Dict)
@@ -10,13 +12,29 @@ import Array exposing (Array)
 import Json.Decode as Json
 
 
-expandTasks : Dict String AsanaTask -> List String -> List AsanaTask
-expandTasks allTasks taskIds =
-    List.filterMap (\taskId -> Dict.get taskId allTasks) taskIds
+expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( AsanaTask, DatePicker.DatePicker )
+expandTasks allTasks datePickers taskIds =
+    List.filterMap
+        (\taskId ->
+            let
+                task =
+                    Dict.get taskId allTasks
+
+                datePicker =
+                    Dict.get taskId datePickers
+            in
+                case ( task, datePicker ) of
+                    ( Just task, Just datePicker ) ->
+                        Just ( task, datePicker )
+
+                    _ ->
+                        Nothing
+        )
+        taskIds
 
 
 rootView : Model -> Html Msg
-rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
+rootView { taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
     let
         taskCategories =
             Array.map (\( category, _ ) -> category) taskList
@@ -25,10 +43,10 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
             Array.map (\( _, taskId ) -> taskId) taskList
 
         expandedTasks =
-            expandTasks tasks (Array.toList taskIds)
+            expandTasks tasks datePickers (Array.toList taskIds)
 
         allTasksWithIndexAndCategory =
-            List.map3 (\index category task -> ( index, category, task )) (List.range 0 (List.length expandedTasks)) (Array.toList taskCategories) expandedTasks
+            List.map3 (\index category ( task, datePicker ) -> ( index, category, task, datePicker )) (List.range 0 (List.length expandedTasks)) (Array.toList taskCategories) expandedTasks
 
         dropId =
             DragDrop.getDropId dragDrop
@@ -47,14 +65,14 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded } =
             ]
 
 
-taskListView : Bool -> AsanaTaskCategory -> String -> List ( Int, AsanaTaskCategory, AsanaTask ) -> Maybe TaskListIndex -> Bool -> Html Msg
+taskListView : Bool -> AsanaTaskCategory -> String -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
 taskListView hideOnEmpty category title allTasks maybeDropId expanded =
     let
         tasksInThisCategory =
-            List.filter (\( _, taskCategory, t ) -> taskCategory == category) allTasks
+            List.filter (\( _, taskCategory, _, _ ) -> taskCategory == category) allTasks
 
         taskViews =
-            (List.map (\( index, _, task ) -> taskView maybeDropId ( category, index ) task) tasksInThisCategory)
+            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( category, index ) task) tasksInThisCategory)
 
         dropView =
             fakeDropView maybeDropId ( category, ((List.length tasksInThisCategory) + 1) )
@@ -86,8 +104,8 @@ classNameIfOnTop maybeDropId ( category, index ) =
             ""
 
 
-taskView : Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
-taskView maybeDropId index task =
+taskView : DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
+taskView datePicker maybeDropId index task =
     let
         classNames =
             "task" ++ (classNameIfOnTop maybeDropId index)
@@ -96,6 +114,7 @@ taskView maybeDropId index task =
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
             [ taskCompletionButton task.id
             , taskTitleView index task.id task.title
+            , taskDatePickerView datePicker task.id task.dueDate
             ]
 
 
@@ -107,6 +126,12 @@ taskCompletionButton taskId =
 taskTitleView : TaskListIndex -> String -> String -> Html Msg
 taskTitleView index taskId title =
     input [ id taskId, onInput (EditTaskTitle taskId), onEnterPress (AddNewTask index), value title ] []
+
+
+taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
+taskDatePickerView datePicker taskId maybeDueDate =
+    DatePicker.view datePicker
+        |> Html.map (ToDatePicker taskId)
 
 
 onEnterPress : Msg -> Attribute Msg
