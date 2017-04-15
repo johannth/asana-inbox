@@ -118,18 +118,27 @@ taskView datePicker maybeDropId index task =
     let
         classNames =
             "task" ++ (classNameIfOnTop maybeDropId index)
+
+        isHeading =
+            String.endsWith ":" task.name
     in
         li
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
-            [ div [ class "taskDragHandle" ] [ dragHandle ]
-            , taskCompletionButton task.id
-            , div [ class "taskWorkspaceAndTitle" ]
-                [ div [ class "taskWorkspace" ]
-                    [ text task.workspace.name ]
-                , taskTitleView index task.id task.name
+            (if isHeading then
+                [ div [ class "taskDragHandle" ] [ dragHandle ]
+                , div [ class "taskTitleAsHeader" ] [ h3 [] [ text task.name ] ]
                 ]
-            , taskDatePickerView datePicker task.id task.dueOn
-            ]
+             else
+                [ div [ class "taskDragHandle" ] [ dragHandle ]
+                , taskCompletionButton task.id
+                , div [ class "taskWorkspaceAndTitle" ]
+                    [ div [ class "taskWorkspace" ]
+                        [ text task.workspace.name ]
+                    , taskTitleView index task.id task.name
+                    ]
+                , taskDatePickerView datePicker task.id task.dueOn
+                ]
+            )
 
 
 dragHandle : Html Msg
