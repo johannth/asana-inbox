@@ -17,13 +17,13 @@ import Json.Decode as Json
 import State exposing (titleInputId)
 
 
-expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List ( AsanaTaskCategory, String ) -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker )
+expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker )
 expandTasks allTasks datePickers taskList =
     List.filterMap
-        (\( index, ( taskCategory, taskId ) ) ->
+        (\( index, taskId ) ->
             case ( Dict.get taskId allTasks, Dict.get taskId datePickers ) of
                 ( Just task, Just datePicker ) ->
-                    Just ( index, taskCategory, task, datePicker )
+                    Just ( index, task.assigneeStatus, task, datePicker )
 
                 _ ->
                     Nothing
@@ -123,8 +123,8 @@ taskView datePicker maybeDropId index task =
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
             [ div [ class "taskDragHandle" ] [ dragHandle ]
             , taskCompletionButton task.id
-            , taskTitleView index task.id task.title
-            , taskDatePickerView datePicker task.id task.dueDate
+            , taskTitleView index task.id task.name
+            , taskDatePickerView datePicker task.id task.dueOn
             ]
 
 
@@ -151,7 +151,7 @@ checkMark =
 
 taskTitleView : TaskListIndex -> String -> String -> Html Msg
 taskTitleView index taskId title =
-    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskTitle taskId), onEnterPress (AddNewTask index), value title ] []
+    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onEnterPress (AddNewTask index), value title ] []
 
 
 taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg

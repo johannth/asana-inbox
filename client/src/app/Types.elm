@@ -1,5 +1,6 @@
 module Types exposing (..)
 
+import Http
 import Dict exposing (Dict)
 import Date exposing (Date)
 import Dom
@@ -15,11 +16,19 @@ type alias AsanaProject =
     }
 
 
+type alias AsanaWorkspace =
+    { id : String
+    , name : String
+    }
+
+
 type alias AsanaTask =
     { id : String
-    , project : Maybe AsanaProject
-    , title : String
-    , dueDate : Maybe Date
+    , assigneeStatus : AsanaTaskCategory
+    , projects : List AsanaProject
+    , workspace : AsanaWorkspace
+    , name : String
+    , dueOn : Maybe Date
     }
 
 
@@ -45,7 +54,7 @@ type alias TaskListIndex =
 type alias Model =
     { apiHost : String
     , tasks : Dict String AsanaTask
-    , taskList : Array ( AsanaTaskCategory, String )
+    , taskList : Array String
     , buildInfo : BuildInfo
     , dragDrop : DragDrop.Model TaskListIndex TaskListIndex
     , expanded : ExpandedState
@@ -57,9 +66,10 @@ type Msg
     = Void
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
+    | LoadTasks (Result Http.Error (List AsanaTask))
     | ToggleExpanded AsanaTaskCategory
     | CompleteTask String
-    | EditTaskTitle String String
+    | EditTaskName String String
     | AddNewTask TaskListIndex
     | FocusResult (Result Dom.Error ())
     | ToDatePicker String DatePicker.Msg

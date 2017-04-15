@@ -9,37 +9,7 @@ import Dom exposing (focus)
 import Task
 import DatePicker exposing (defaultSettings)
 import Date
-
-
-mockProject1 =
-    AsanaProject "p1" "Project 1"
-
-
-mockProject2 =
-    AsanaProject "p2" "Project 2"
-
-
-mockProjects =
-    Dict.fromList [ ( mockProject1.id, mockProject1 ), ( mockProject2.id, mockProject2 ) ]
-
-
-mockTask1 : AsanaTask
-mockTask1 =
-    AsanaTask "0" (Just mockProject1) "AsanaTask 1" (Just (Date.fromTime 1492178634000))
-
-
-mockTask2 : AsanaTask
-mockTask2 =
-    AsanaTask "1" (Just mockProject2) "AsanaTask 2" Nothing
-
-
-mockTask3 : AsanaTask
-mockTask3 =
-    AsanaTask "2" Nothing "AsanaTask 3" (Just (Date.fromTime 1488499200000))
-
-
-mockTasks =
-    Dict.fromList [ ( mockTask1.id, mockTask1 ), ( mockTask2.id, mockTask2 ), ( mockTask3.id, mockTask3 ) ]
+import Api
 
 
 titleInputId : String -> String
@@ -56,7 +26,7 @@ initDatePickers tasks =
                     (\task ->
                         let
                             settings =
-                                { defaultSettings | pickedDate = task.dueDate }
+                                { defaultSettings | pickedDate = task.dueOn }
 
                             ( datePicker, datePickerFx ) =
                                 DatePicker.init settings
@@ -76,32 +46,29 @@ initDatePickers tasks =
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
 init flags location =
     let
-        ( datePickers, datePickerFx ) =
-            initDatePickers (Dict.values mockTasks)
-
         initialModel =
             { apiHost = flags.apiHost
-            , tasks = mockTasks
-            , taskList = Array.fromList [ ( New, mockTask1.id ), ( Today, mockTask2.id ), ( Today, mockTask3.id ) ]
+            , tasks = Dict.empty
+            , taskList = Array.empty
             , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
             , dragDrop = DragDrop.init
             , expanded = { today = True, new = True, upcoming = False, later = False }
-            , datePickers = datePickers
+            , datePickers = Dict.empty
             }
 
         initialCommands =
-            datePickerFx
+            [ Api.getTasks initialModel.apiHost ]
     in
         initialModel ! initialCommands
 
 
-placeDroppedTask : TaskListIndex -> TaskListIndex -> Array ( AsanaTaskCategory, String ) -> Array ( AsanaTaskCategory, String )
+placeDroppedTask : TaskListIndex -> TaskListIndex -> Array String -> Array String
 placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
     case Array.get dragIndex tasks of
-        Just ( _, dragTaskId ) ->
+        Just dragTaskId ->
             let
                 filterDragged =
-                    Array.filter (\( _, taskId ) -> taskId /= dragTaskId)
+                    Array.filter (\taskId -> taskId /= dragTaskId)
 
                 firstHalf =
                     (Array.slice 0 dropIndex tasks) |> filterDragged |> Array.toList
@@ -109,13 +76,13 @@ placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
                 secondHalf =
                     (Array.slice dropIndex (Array.length tasks) tasks) |> filterDragged |> Array.toList
             in
-                Array.fromList (firstHalf ++ [ ( dropCategory, dragTaskId ) ] ++ secondHalf)
+                Array.fromList (firstHalf ++ [ dragTaskId ] ++ secondHalf)
 
         Nothing ->
             tasks
 
 
-insertTaskAfterIndex : TaskListIndex -> String -> Array ( AsanaTaskCategory, String ) -> Array ( AsanaTaskCategory, String )
+insertTaskAfterIndex : TaskListIndex -> String -> Array String -> Array String
 insertTaskAfterIndex ( taskCategory, index ) taskId taskList =
     let
         firstHalf =
@@ -124,7 +91,7 @@ insertTaskAfterIndex ( taskCategory, index ) taskId taskList =
         secondHalf =
             (Array.slice (index + 1) (Array.length taskList) taskList) |> Array.toList
     in
-        Array.fromList (firstHalf ++ [ ( taskCategory, taskId ) ] ++ secondHalf)
+        Array.fromList (firstHalf ++ [ taskId ] ++ secondHalf)
 
 
 toggleExpandedState : AsanaTaskCategory -> ExpandedState -> ExpandedState
@@ -155,37 +122,57 @@ update msg model =
         UrlChange newLocation ->
             model ! []
 
+        LoadTasks (Err message) ->
+            let
+                x =
+                    Debug.log "Error" message
+            in
+                model ! []
+
+        LoadTasks (Ok newTasks) ->
+            let
+                taskList =
+                    List.map .id newTasks
+
+                tasks =
+                    Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
+
+                ( datePickers, datePickerFx ) =
+                    initDatePickers (Dict.values tasks)
+            in
+                { model | taskList = Array.fromList taskList, tasks = tasks, datePickers = datePickers } ! datePickerFx
+
         ToggleExpanded taskCategory ->
             { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
 
         CompleteTask completedTaskId ->
-            { model | taskList = Array.filter (\( _, taskId ) -> taskId /= completedTaskId) model.taskList } ! []
+            { model | taskList = Array.filter (\taskId -> taskId /= completedTaskId) model.taskList } ! []
 
-        EditTaskTitle taskId title ->
+        EditTaskName taskId name ->
             case Dict.get taskId model.tasks of
                 Just task ->
                     let
                         updatedTask =
-                            { task | title = title }
+                            { task | name = name }
                     in
                         { model | tasks = Dict.insert taskId updatedTask model.tasks } ! []
 
                 Nothing ->
                     model ! []
 
-        AddNewTask index ->
+        AddNewTask ( assigneeStatus, index ) ->
             let
                 localId =
                     toString (Array.length model.taskList)
 
                 task =
-                    AsanaTask localId Nothing "" Nothing
+                    AsanaTask localId assigneeStatus [] (AsanaWorkspace "1" "Local") "" Nothing
 
                 ( datePicker, datePickerFx ) =
                     DatePicker.init defaultSettings
 
                 taskList =
-                    insertTaskAfterIndex index task.id model.taskList
+                    insertTaskAfterIndex ( assigneeStatus, index ) task.id model.taskList
             in
                 { model
                     | tasks = Dict.insert task.id task model.tasks
@@ -207,7 +194,7 @@ update msg model =
                         updatedTask =
                             case maybeDate of
                                 Just date ->
-                                    { task | dueDate = Just date }
+                                    { task | dueOn = Just date }
 
                                 Nothing ->
                                     task
