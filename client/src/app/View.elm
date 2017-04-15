@@ -61,10 +61,10 @@ taskListView hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
             List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
 
         taskViews =
-            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( assigneeStatus, index ) task) tasksWithThisStatus)
+            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
 
         dropView =
-            fakeDropView maybeDropId ( assigneeStatus, ((List.length tasksWithThisStatus) + 1) )
+            fakeDropView maybeDropId ( assigneeStatus, "", ((List.length tasksWithThisStatus) + 1) )
     in
         if hideOnEmpty && List.length tasksWithThisStatus == 0 then
             text ""
@@ -101,9 +101,9 @@ triangle =
 
 
 classNameIfOnTop : Maybe TaskListIndex -> TaskListIndex -> String
-classNameIfOnTop maybeDropId ( category, index ) =
+classNameIfOnTop maybeDropId ( category, _, index ) =
     case maybeDropId of
-        Just ( dropCategory, dropIndex ) ->
+        Just ( dropCategory, _, dropIndex ) ->
             if dropCategory == category && dropIndex == index then
                 " onTop"
             else

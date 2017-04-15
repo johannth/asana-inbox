@@ -8,7 +8,6 @@ import Dict exposing (Dict)
 import Dom exposing (focus)
 import Task
 import DatePicker exposing (defaultSettings)
-import Date
 import Api
 
 
@@ -62,36 +61,36 @@ init flags location =
         initialModel ! initialCommands
 
 
-placeDroppedTask : TaskListIndex -> TaskListIndex -> Array String -> Array String
-placeDroppedTask ( dragCategory, dragIndex ) ( dropCategory, dropIndex ) tasks =
-    case Array.get dragIndex tasks of
-        Just dragTaskId ->
+moveItemInArray : Int -> Int -> Array comparable -> Array comparable
+moveItemInArray fromIndex toIndex array =
+    case Array.get fromIndex array of
+        Just item ->
             let
-                filterDragged =
-                    Array.filter (\taskId -> taskId /= dragTaskId)
+                filterItem =
+                    Array.filter (\x -> x /= item)
 
                 firstHalf =
-                    (Array.slice 0 dropIndex tasks) |> filterDragged |> Array.toList
+                    (Array.slice 0 toIndex array) |> filterItem |> Array.toList
 
                 secondHalf =
-                    (Array.slice dropIndex (Array.length tasks) tasks) |> filterDragged |> Array.toList
+                    (Array.slice toIndex (Array.length array)) array |> filterItem |> Array.toList
             in
-                Array.fromList (firstHalf ++ [ dragTaskId ] ++ secondHalf)
+                Array.fromList (firstHalf ++ [ item ] ++ secondHalf)
 
         Nothing ->
-            tasks
+            array
 
 
-insertTaskAfterIndex : TaskListIndex -> String -> Array String -> Array String
-insertTaskAfterIndex ( taskCategory, index ) taskId taskList =
+insertAfterIndex : Int -> a -> Array a -> Array a
+insertAfterIndex index item array =
     let
         firstHalf =
-            (Array.slice 0 (index + 1) taskList) |> Array.toList
+            (Array.slice 0 (index + 1) array) |> Array.toList
 
         secondHalf =
-            (Array.slice (index + 1) (Array.length taskList) taskList) |> Array.toList
+            (Array.slice (index + 1) (Array.length array) array) |> Array.toList
     in
-        Array.fromList (firstHalf ++ [ taskId ] ++ secondHalf)
+        Array.fromList (firstHalf ++ [ item ] ++ secondHalf)
 
 
 toggleExpandedState : AssigneeStatus -> ExpandedState -> ExpandedState
@@ -108,6 +107,20 @@ toggleExpandedState assigneeStatus currentState =
 
         Later ->
             { currentState | later = not currentState.later }
+
+
+updateAssigneeStatus : String -> AssigneeStatus -> Dict String AsanaTask -> Dict String AsanaTask
+updateAssigneeStatus taskId assigneeStatus tasks =
+    case Dict.get taskId tasks of
+        Just task ->
+            let
+                updatedTask =
+                    { task | assigneeStatus = assigneeStatus }
+            in
+                Dict.insert taskId updatedTask tasks
+
+        Nothing ->
+            tasks
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -160,7 +173,7 @@ update msg model =
                 Nothing ->
                     model ! []
 
-        AddNewTask ( assigneeStatus, index ) ->
+        AddNewTask ( assigneeStatus, _, index ) ->
             let
                 localId =
                     toString (Array.length model.taskList)
@@ -172,7 +185,7 @@ update msg model =
                     DatePicker.init defaultSettings
 
                 taskList =
-                    insertTaskAfterIndex ( assigneeStatus, index ) task.id model.taskList
+                    insertAfterIndex index task.id model.taskList
             in
                 { model
                     | tasks = Dict.insert task.id task model.tasks
@@ -216,16 +229,17 @@ update msg model =
                 ( model_, result ) =
                     DragDrop.update msg_ model.dragDrop
 
-                taskList =
+                ( taskList, tasks ) =
                     case result of
-                        Just ( dragId, dropId ) ->
-                            placeDroppedTask dragId dropId model.taskList
+                        Just ( ( dragAssigneeStatus, dragTaskId, dragIndex ), ( dropAssigneeStatus, _, dropIndex ) ) ->
+                            ( moveItemInArray dragIndex dropIndex model.taskList, updateAssigneeStatus dragTaskId dropAssigneeStatus model.tasks )
 
                         Nothing ->
-                            model.taskList
+                            ( model.taskList, model.tasks )
             in
                 { model
                     | dragDrop = model_
                     , taskList = taskList
+                    , tasks = tasks
                 }
                     ! []

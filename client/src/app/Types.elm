@@ -48,7 +48,7 @@ type alias ExpandedState =
 
 
 type alias TaskListIndex =
-    ( AssigneeStatus, Int )
+    ( AssigneeStatus, String, Int )
 
 
 type alias Model =
