@@ -68,7 +68,7 @@ decodeDueOn =
         (Decode.maybe Decode.string)
 
 
-decodeAssigneeStatus : Decode.Decoder AsanaTaskCategory
+decodeAssigneeStatus : Decode.Decoder AssigneeStatus
 decodeAssigneeStatus =
     Decode.map
         (\value ->

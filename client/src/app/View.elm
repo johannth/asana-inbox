@@ -17,7 +17,7 @@ import Json.Decode as Json
 import State exposing (titleInputId)
 
 
-expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker )
+expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker )
 expandTasks allTasks datePickers taskList =
     List.filterMap
         (\( index, taskId ) ->
@@ -54,24 +54,24 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
             ]
 
 
-taskListView : Bool -> AsanaTaskCategory -> String -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
-taskListView hideOnEmpty category title allTasks maybeDropId expanded =
+taskListView : Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
+taskListView hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
     let
-        tasksInThisCategory =
-            List.filter (\( _, taskCategory, _, _ ) -> taskCategory == category) allTasks
+        tasksWithThisStatus =
+            List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
 
         taskViews =
-            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( category, index ) task) tasksInThisCategory)
+            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( assigneeStatus, index ) task) tasksWithThisStatus)
 
         dropView =
-            fakeDropView maybeDropId ( category, ((List.length tasksInThisCategory) + 1) )
+            fakeDropView maybeDropId ( assigneeStatus, ((List.length tasksWithThisStatus) + 1) )
     in
-        if hideOnEmpty && List.length tasksInThisCategory == 0 then
+        if hideOnEmpty && List.length tasksWithThisStatus == 0 then
             text ""
         else
             div []
                 [ h2
-                    [ class "tasksHeader", onClick (ToggleExpanded category) ]
+                    [ class "tasksHeader", onClick (ToggleExpanded assigneeStatus) ]
                     [ div
                         [ class
                             ("tasksHeaderTriangleIcon"

@@ -94,9 +94,9 @@ insertTaskAfterIndex ( taskCategory, index ) taskId taskList =
         Array.fromList (firstHalf ++ [ taskId ] ++ secondHalf)
 
 
-toggleExpandedState : AsanaTaskCategory -> ExpandedState -> ExpandedState
-toggleExpandedState taskCategory currentState =
-    case taskCategory of
+toggleExpandedState : AssigneeStatus -> ExpandedState -> ExpandedState
+toggleExpandedState assigneeStatus currentState =
+    case assigneeStatus of
         Today ->
             { currentState | today = not currentState.today }
 

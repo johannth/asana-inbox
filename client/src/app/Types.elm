@@ -24,7 +24,7 @@ type alias AsanaWorkspace =
 
 type alias AsanaTask =
     { id : String
-    , assigneeStatus : AsanaTaskCategory
+    , assigneeStatus : AssigneeStatus
     , projects : List AsanaProject
     , workspace : AsanaWorkspace
     , name : String
@@ -32,7 +32,7 @@ type alias AsanaTask =
     }
 
 
-type AsanaTaskCategory
+type AssigneeStatus
     = New
     | Today
     | Upcoming
@@ -48,7 +48,7 @@ type alias ExpandedState =
 
 
 type alias TaskListIndex =
-    ( AsanaTaskCategory, Int )
+    ( AssigneeStatus, Int )
 
 
 type alias Model =
@@ -67,7 +67,7 @@ type Msg
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
     | LoadTasks (Result Http.Error (List AsanaTask))
-    | ToggleExpanded AsanaTaskCategory
+    | ToggleExpanded AssigneeStatus
     | CompleteTask String
     | EditTaskName String String
     | AddNewTask TaskListIndex
