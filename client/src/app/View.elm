@@ -123,7 +123,11 @@ taskView datePicker maybeDropId index task =
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
             [ div [ class "taskDragHandle" ] [ dragHandle ]
             , taskCompletionButton task.id
-            , taskTitleView index task.id task.name
+            , div [ class "taskWorkspaceAndTitle" ]
+                [ div [ class "taskWorkspace" ]
+                    [ text task.workspace.name ]
+                , taskTitleView index task.id task.name
+                ]
             , taskDatePickerView datePicker task.id task.dueOn
             ]
 
