@@ -181,10 +181,18 @@ update msg model =
                 task =
                     AsanaTask localId Nothing "" Nothing
 
+                ( datePicker, datePickerFx ) =
+                    DatePicker.init defaultSettings
+
                 taskList =
                     insertTaskAfterIndex index task.id model.taskList
             in
-                { model | tasks = Dict.insert task.id task model.tasks, taskList = taskList } ! [ Task.attempt FocusResult (focus (titleInputId task.id)) ]
+                { model
+                    | tasks = Dict.insert task.id task model.tasks
+                    , taskList = taskList
+                    , datePickers = Dict.insert task.id datePicker model.datePickers
+                }
+                    ! [ Task.attempt FocusResult (focus (titleInputId task.id)), Cmd.map (ToDatePicker task.id) datePickerFx ]
 
         ToDatePicker taskId msg ->
             case ( Dict.get taskId model.datePickers, Dict.get taskId model.tasks ) of

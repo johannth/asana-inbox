@@ -17,41 +17,25 @@ import Json.Decode as Json
 import State exposing (titleInputId)
 
 
-expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( AsanaTask, DatePicker.DatePicker )
-expandTasks allTasks datePickers taskIds =
+expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List ( AsanaTaskCategory, String ) -> List ( Int, AsanaTaskCategory, AsanaTask, DatePicker.DatePicker )
+expandTasks allTasks datePickers taskList =
     List.filterMap
-        (\taskId ->
-            let
-                task =
-                    Dict.get taskId allTasks
+        (\( index, ( taskCategory, taskId ) ) ->
+            case ( Dict.get taskId allTasks, Dict.get taskId datePickers ) of
+                ( Just task, Just datePicker ) ->
+                    Just ( index, taskCategory, task, datePicker )
 
-                datePicker =
-                    Dict.get taskId datePickers
-            in
-                case ( task, datePicker ) of
-                    ( Just task, Just datePicker ) ->
-                        Just ( task, datePicker )
-
-                    _ ->
-                        Nothing
+                _ ->
+                    Nothing
         )
-        taskIds
+        (List.indexedMap (,) taskList)
 
 
 rootView : Model -> Html Msg
 rootView { taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
     let
-        taskCategories =
-            Array.map (\( category, _ ) -> category) taskList
-
-        taskIds =
-            Array.map (\( _, taskId ) -> taskId) taskList
-
-        expandedTasks =
-            expandTasks tasks datePickers (Array.toList taskIds)
-
         allTasksWithIndexAndCategory =
-            List.map3 (\index category ( task, datePicker ) -> ( index, category, task, datePicker )) (List.range 0 (List.length expandedTasks)) (Array.toList taskCategories) expandedTasks
+            expandTasks tasks datePickers (Array.toList taskList)
 
         dropId =
             DragDrop.getDropId dragDrop
