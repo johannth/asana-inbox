@@ -8,7 +8,7 @@ body {
 
 #content {
   margin: 0 auto;
-  max-width: 980px;
+  max-width: 720px;
   margin-left: auto;
   margin-right: auto;
   padding-bottom: 50px;
@@ -95,10 +95,33 @@ body {
 .taskTitle {
   border: 0;
   padding: 0px;
+  flex:1;
 }
 
 .taskTitle:focus{
   outline: none;
+}
+
+.datePickerContainer {
+  display: flex;
+}
+
+.elm-datepicker--container {
+  display: none;
+  margin: auto 0 auto 0;
+}
+
+.task:hover .elm-datepicker--container {
+  display: block;
+}
+
+.datePicker {
+  margin: auto;
+}
+
+.task:hover .datePicker {
+  display: none;
+
 }
 
 .fakeDropView {

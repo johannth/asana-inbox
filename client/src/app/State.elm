@@ -197,7 +197,12 @@ update msg model =
                             Dict.insert taskId newDatePicker model.datePickers
 
                         updatedTask =
-                            { task | dueDate = maybeDate }
+                            case maybeDate of
+                                Just date ->
+                                    { task | dueDate = Just date }
+
+                                Nothing ->
+                                    task
 
                         tasks =
                             Dict.insert taskId updatedTask model.tasks

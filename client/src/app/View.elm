@@ -4,6 +4,8 @@ import Html exposing (..)
 import Svg
 import Svg.Attributes
 import Date exposing (Date)
+import Date.Extra.Config.Config_en_us exposing (config)
+import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
 import DatePicker
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
@@ -170,8 +172,21 @@ taskTitleView index taskId title =
 
 taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
 taskDatePickerView datePicker taskId maybeDueDate =
-    DatePicker.view datePicker
-        |> Html.map (ToDatePicker taskId)
+    div [ class "datePickerContainer" ]
+        [ (case maybeDueDate of
+            Just dueDate ->
+                let
+                    formattedDate =
+                        format config config.format.date dueDate
+                in
+                    div [ class "datePicker" ] [ text formattedDate ]
+
+            Nothing ->
+                text ""
+          )
+        , DatePicker.view datePicker
+            |> Html.map (ToDatePicker taskId)
+        ]
 
 
 onEnterPress : Msg -> Attribute Msg
