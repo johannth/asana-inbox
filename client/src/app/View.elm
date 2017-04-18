@@ -32,28 +32,29 @@ expandTasks allTasks datePickers taskList =
 
 
 rootView : Model -> Html Msg
-rootView { accessTokenFormExpanded, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+rootView model =
     let
-        allTasksWithIndexAndCategory =
-            expandTasks tasks datePickers (Array.toList taskList)
+        hasNoTasks =
+            Array.length model.taskList == 0
 
-        dropId =
-            DragDrop.getDropId dragDrop
+        isLoading =
+            hasNoTasks && List.length model.accessTokens /= 0
     in
         div [ id "content" ]
             [ h1 [ id "title" ] [ text "Asana Inbox" ]
             , div [ id "body" ]
-                [ tokensView accessTokenFormExpanded accessTokens
-                , div
-                    []
-                    [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
-                    , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-                    , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-                    , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
-                    ]
+                [ tokensView model.accessTokenFormExpanded model.accessTokens
+                , (if hasNoTasks then
+                    if isLoading then
+                        div [] [ text "Loading.." ]
+                    else
+                        div [] []
+                   else
+                    tasksView model
+                  )
                 ]
             , div [ id "footer" ]
-                [ buildInfoView buildInfo
+                [ buildInfoView model.buildInfo
                 ]
             ]
 
@@ -97,6 +98,23 @@ accessTokenView accessToken =
         [ span [ class "accessTokenName" ] [ text accessToken.name ]
         , div [ class "removeAccessToken", onClick (RemoveAccessToken accessToken) ] [ text "x" ]
         ]
+
+
+tasksView : Model -> Html Msg
+tasksView { accessTokenFormExpanded, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+    let
+        allTasksWithIndexAndCategory =
+            expandTasks tasks datePickers (Array.toList taskList)
+
+        dropId =
+            DragDrop.getDropId dragDrop
+    in
+        div []
+            [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
+            , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+            , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+            , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+            ]
 
 
 taskListView : Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
