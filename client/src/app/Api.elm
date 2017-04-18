@@ -12,13 +12,31 @@ apiUrl apiHost path =
     apiHost ++ path
 
 
+requestHeaders : List AsanaAccessToken -> List Http.Header
+requestHeaders accessTokens =
+    [ Http.header "Authorization" ("Bearer " ++ (String.join "," (List.map .token accessTokens))) ]
+
+
 getJson : List AsanaAccessToken -> String -> Decode.Decoder a -> Http.Request a
 getJson accessTokens url decoder =
     Http.request
         { method = "GET"
         , url = url
-        , headers = [ Http.header "Authorization" ("Bearer " ++ (String.join "," (List.map .token accessTokens))) ]
+        , headers = requestHeaders accessTokens
         , body = Http.emptyBody
+        , expect = Http.expectJson decoder
+        , timeout = Nothing
+        , withCredentials = False
+        }
+
+
+postJson : List AsanaAccessToken -> String -> Http.Body -> Decode.Decoder a -> Http.Request a
+postJson accessTokens url body decoder =
+    Http.request
+        { method = "POST"
+        , url = url
+        , headers = requestHeaders accessTokens
+        , body = body
         , expect = Http.expectJson decoder
         , timeout = Nothing
         , withCredentials = False
@@ -29,6 +47,12 @@ getTasks : String -> List AsanaAccessToken -> Cmd Msg
 getTasks apiHost accessTokens =
     Http.send LoadTasks <|
         getJson accessTokens (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeTaskList)
+
+
+updateTask : String -> List AsanaAccessToken -> AsanaTask -> AsanaTaskMutation -> Cmd Msg
+updateTask apiHost accessTokens task mutation =
+    Http.send TaskUpdated <|
+        postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/" ++ task.id) (Http.jsonBody (encodeAsanaTaskMutation mutation)) (Decode.succeed ())
 
 
 decodeTaskList : Decode.Decoder (List AsanaTask)
@@ -101,6 +125,38 @@ decodeAssigneeStatus =
                     New
         )
         Decode.string
+
+
+encodeAsanaTaskMutation : AsanaTaskMutation -> Encode.Value
+encodeAsanaTaskMutation mutation =
+    case mutation of
+        Complete ->
+            Encode.object [ ( "completed", Encode.bool True ) ]
+
+        UpdateAssigneeStatus status ->
+            Encode.object [ ( "assigneeStatus", encodeAssigneeStatus status ) ]
+
+        UpdateDueOn dueDate ->
+            Encode.object [ ( "dueOn", Encode.bool False ) ]
+
+        UpdateName name ->
+            Encode.object [ ( "name", Encode.string name ) ]
+
+
+encodeAssigneeStatus : AssigneeStatus -> Encode.Value
+encodeAssigneeStatus assigneeStatus =
+    case assigneeStatus of
+        Today ->
+            Encode.string "today"
+
+        New ->
+            Encode.string "new"
+
+        Upcoming ->
+            Encode.string "upcoming"
+
+        Later ->
+            Encode.string "later"
 
 
 decodeAccessTokens : Decode.Decoder (List AsanaAccessToken)

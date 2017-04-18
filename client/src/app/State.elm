@@ -214,7 +214,12 @@ update msg model =
             { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
 
         CompleteTask completedTaskId ->
-            { model | taskList = Array.filter (\taskId -> taskId /= completedTaskId) model.taskList } ! []
+            case Dict.get completedTaskId model.tasks of
+                Just task ->
+                    { model | taskList = Array.filter (\taskId -> taskId /= completedTaskId) model.taskList } ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
+
+                Nothing ->
+                    model ! []
 
         EditTaskName taskId name ->
             case Dict.get taskId model.tasks of
@@ -278,6 +283,9 @@ update msg model =
 
                 _ ->
                     model ! []
+
+        TaskUpdated result ->
+            model ! []
 
         DragDropMsg msg_ ->
             let

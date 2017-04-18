@@ -39,6 +39,13 @@ type alias AsanaTask =
     }
 
 
+type AsanaTaskMutation
+    = Complete
+    | UpdateAssigneeStatus AssigneeStatus
+    | UpdateDueOn Date
+    | UpdateName String
+
+
 type AssigneeStatus
     = New
     | Today
@@ -78,6 +85,7 @@ type Msg
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
     | LoadTasks (Result Http.Error (List AsanaTask))
+    | TaskUpdated (Result Http.Error ())
     | ToggleExpanded AssigneeStatus
     | CompleteTask String
     | EditTaskName String String

@@ -159,6 +159,15 @@ body {
   margin: auto 9px auto 0px;
 }
 
+.taskCompletionButton:hover {
+  border-color: rgb(2, 206, 255);
+}
+
+.taskCompletionButton:hover svg
+{
+  fill: rgb(2, 206, 255);
+}
+
 .taskCompletionButton svg
 {
   margin: auto;
