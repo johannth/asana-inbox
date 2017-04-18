@@ -32,6 +32,8 @@ body {
   display: flex;
 }
 
+
+
 .accessToken {
   font-size: 12px;
   padding: 2px 5px 2px 5px;
@@ -68,6 +70,7 @@ body {
 }
 
 .expandAccessTokenForm {
+  visibility: hidden;
   cursor:pointer;
   width: 16px;
   height: 16px;
@@ -80,6 +83,10 @@ body {
   text-align: center;
   flex-direction: column;
   color: rgb(225, 226, 228);
+}
+
+.accessTokens:hover .expandAccessTokenForm{
+  visibility: visible;
 }
 
 .expandAccessTokenForm:hover {
