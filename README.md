@@ -1,6 +1,10 @@
-# Goodreads Reading List
+# Asana Unified Inbox
 
-A unified inbox for Asana.
+A proof of concept of an unified inbox for Asana. Uses access tokens instead of oAuth so it works across workspaces and different users. The access token is currently stored in localStorage in your browser.
+
+You can create Asana access tokens in 'My Profile Settings' > Apps > Manage Developer Apps.
+
+A huge work in progress so take care. There are bugs.
 
 ## Development
 
