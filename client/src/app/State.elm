@@ -292,17 +292,25 @@ update msg model =
                 ( model_, result ) =
                     DragDrop.update msg_ model.dragDrop
 
-                ( taskList, tasks ) =
+                ( taskList, tasks, commands ) =
                     case result of
                         Just ( ( dragAssigneeStatus, dragTaskId, dragIndex ), ( dropAssigneeStatus, _, dropIndex ) ) ->
-                            ( moveItemInArray dragIndex dropIndex model.taskList, updateAssigneeStatus dragTaskId dropAssigneeStatus model.tasks )
+                            case Dict.get dragTaskId model.tasks of
+                                Just task ->
+                                    ( moveItemInArray dragIndex dropIndex model.taskList
+                                    , updateAssigneeStatus dragTaskId dropAssigneeStatus model.tasks
+                                    , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus dropAssigneeStatus) ]
+                                    )
+
+                                Nothing ->
+                                    ( model.taskList, model.tasks, [] )
 
                         Nothing ->
-                            ( model.taskList, model.tasks )
+                            ( model.taskList, model.tasks, [] )
             in
                 { model
                     | dragDrop = model_
                     , taskList = taskList
                     , tasks = tasks
                 }
-                    ! []
+                    ! commands

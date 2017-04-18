@@ -100,8 +100,6 @@ const mutationsToRaw = body => {
 app.post('/api/tasks/:workspaceId/:taskId', (req, res) => {
   const clients = createClientsFromRequest(req);
 
-  console.log(req.body);
-
   Promise.all(
     clients.map(client => {
       return client.users.me().then(me => {
@@ -123,6 +121,7 @@ app.post('/api/tasks/:workspaceId/:taskId', (req, res) => {
     .then(response => res.json({}))
     .error(error => res.json({error}));
 });
+
 // process.env.PORT lets the port be set by Heroku
 const port = process.env.PORT || 8080;
 
