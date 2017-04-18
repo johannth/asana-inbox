@@ -1,6 +1,7 @@
 module Api exposing (..)
 
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Http
 import Types exposing (..)
 import Date exposing (Date)
@@ -100,3 +101,25 @@ decodeAssigneeStatus =
                     New
         )
         Decode.string
+
+
+decodeAccessTokens : Decode.Decoder (List AsanaAccessToken)
+decodeAccessTokens =
+    Decode.list decodeAccessToken
+
+
+decodeAccessToken : Decode.Decoder AsanaAccessToken
+decodeAccessToken =
+    Decode.map2 AsanaAccessToken
+        (Decode.field "name" Decode.string)
+        (Decode.field "token" Decode.string)
+
+
+encodeAccessTokens : List AsanaAccessToken -> Encode.Value
+encodeAccessTokens tokens =
+    Encode.list (List.map encodeAccessToken tokens)
+
+
+encodeAccessToken : AsanaAccessToken -> Encode.Value
+encodeAccessToken token =
+    Encode.object [ ( "name", Encode.string token.name ), ( "token", Encode.string token.token ) ]

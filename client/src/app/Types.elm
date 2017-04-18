@@ -8,6 +8,7 @@ import Navigation
 import Html5.DragDrop as DragDrop
 import Array exposing (Array)
 import DatePicker
+import LocalStorage
 
 
 type alias AsanaAccessToken =
@@ -87,6 +88,7 @@ type Msg
     | AddAccessTokenName String
     | AddAccessTokenToken String
     | SaveAccessToken
+    | ReceiveItem LocalStorage.LocalStorageItem
     | ToDatePicker String DatePicker.Msg
 
 

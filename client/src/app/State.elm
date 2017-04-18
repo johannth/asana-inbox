@@ -9,6 +9,12 @@ import Dom exposing (focus)
 import Task
 import DatePicker exposing (defaultSettings)
 import Api
+import LocalStorage
+
+
+accessTokensStorageKey : String
+accessTokensStorageKey =
+    "accessTokens"
 
 
 titleInputId : String -> String
@@ -60,7 +66,7 @@ init flags location =
             }
 
         initialCommands =
-            [ Api.getTasks initialModel.apiHost initialModel.accessTokens ]
+            [ LocalStorage.getItem accessTokensStorageKey ]
     in
         initialModel ! initialCommands
 
@@ -127,6 +133,11 @@ updateAssigneeStatus taskId assigneeStatus tasks =
             tasks
 
 
+saveApiTokens : List AsanaAccessToken -> Cmd Msg
+saveApiTokens accessTokens =
+    LocalStorage.setItem (LocalStorage.encodeToItem accessTokensStorageKey (Api.encodeAccessTokens accessTokens))
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -138,6 +149,20 @@ update msg model =
 
         UrlChange newLocation ->
             model ! []
+
+        ReceiveItem item ->
+            let
+                maybeAccessTokens =
+                    case item.key of
+                        accessTokensStorageKey ->
+                            LocalStorage.decodeToType item Api.decodeAccessTokens
+            in
+                case maybeAccessTokens of
+                    Just accessTokens ->
+                        { model | accessTokens = accessTokens } ! [ Api.getTasks model.apiHost accessTokens ]
+
+                    Nothing ->
+                        model ! []
 
         ToggleAccessTokenForm ->
             { model | accessTokenFormExpanded = not model.accessTokenFormExpanded } ! []
@@ -156,10 +181,14 @@ update msg model =
                 updatedModel =
                     { model | accessTokens = model.accessTokens ++ [ newAccessToken ], newAccessTokenName = "", newAccessTokenToken = "", accessTokenFormExpanded = False }
             in
-                updatedModel ! [ Api.getTasks updatedModel.apiHost updatedModel.accessTokens ]
+                updatedModel ! [ Api.getTasks updatedModel.apiHost updatedModel.accessTokens, saveApiTokens updatedModel.accessTokens ]
 
         RemoveAccessToken accessToken ->
-            { model | accessTokens = List.filter (\token -> token /= accessToken) model.accessTokens } ! []
+            let
+                updatedModel =
+                    { model | accessTokens = List.filter (\token -> token /= accessToken) model.accessTokens }
+            in
+                updatedModel ! [ saveApiTokens updatedModel.accessTokens ]
 
         LoadTasks (Err message) ->
             let
