@@ -47,6 +47,10 @@ init flags location =
     let
         initialModel =
             { apiHost = flags.apiHost
+            , accessTokenFormExpanded = False
+            , newAccessTokenName = ""
+            , newAccessTokenToken = ""
+            , accessTokens = []
             , tasks = Dict.empty
             , taskList = Array.empty
             , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
@@ -56,7 +60,7 @@ init flags location =
             }
 
         initialCommands =
-            [ Api.getTasks initialModel.apiHost ]
+            [ Api.getTasks initialModel.apiHost initialModel.accessTokens ]
     in
         initialModel ! initialCommands
 
@@ -134,6 +138,28 @@ update msg model =
 
         UrlChange newLocation ->
             model ! []
+
+        ToggleAccessTokenForm ->
+            { model | accessTokenFormExpanded = not model.accessTokenFormExpanded } ! []
+
+        AddAccessTokenName name ->
+            { model | newAccessTokenName = name } ! []
+
+        AddAccessTokenToken token ->
+            { model | newAccessTokenToken = token } ! []
+
+        SaveAccessToken ->
+            let
+                newAccessToken =
+                    AsanaAccessToken model.newAccessTokenName model.newAccessTokenToken
+
+                updatedModel =
+                    { model | accessTokens = model.accessTokens ++ [ newAccessToken ], newAccessTokenName = "", newAccessTokenToken = "", accessTokenFormExpanded = False }
+            in
+                updatedModel ! [ Api.getTasks updatedModel.apiHost updatedModel.accessTokens ]
+
+        RemoveAccessToken accessToken ->
+            { model | accessTokens = List.filter (\token -> token /= accessToken) model.accessTokens } ! []
 
         LoadTasks (Err message) ->
             let

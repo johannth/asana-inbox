@@ -19,10 +19,9 @@ const handleErrors = response => {
 
 const createClients = accessTokens => {
   return accessTokens.map(accessToken =>
-    asana.Client.create().useAccessToken(accessToken));
+    asana.Client.create().useAccessToken(accessToken),
+  );
 };
-
-const clients = createClients(process.env.API_TOKENS.split(','));
 
 const allTasks = client => {
   return client.users
@@ -35,9 +34,9 @@ const allTasks = client => {
             workspace: workspace.id,
             completed_since: 'now',
             limit: 100,
-            opt_fields: 'id,name,assignee_status,due_on,projects,workspace,projects.name,workspace.name'
+            opt_fields: 'id,name,assignee_status,due_on,projects,workspace,projects.name,workspace.name',
           });
-        })
+        }),
       );
     })
     .then(tasksPerWorkspace => {
@@ -52,31 +51,37 @@ const cleanTaskData = rawTask => {
     name: rawTask.name,
     projects: rawTask.projects.map(cleanProjectData),
     workspace: cleanWorkspaceData(rawTask.workspace),
-    assigneeStatus: rawTask.assignee_status
+    assigneeStatus: rawTask.assignee_status,
   };
 };
 
 const cleanProjectData = rawProject => {
   return {
     id: `${rawProject.id}`,
-    name: rawProject.name
+    name: rawProject.name,
   };
 };
 
 const cleanWorkspaceData = rawWorkspace => {
   return {
     id: `${rawWorkspace.id}`,
-    name: rawWorkspace.name
+    name: rawWorkspace.name,
   };
 };
 
 app.get('/api/tasks', (req, res) => {
+  const tokens = req.headers.authorization.replace('Bearer ', '').split(',');
+  const clients = createClients(tokens);
   Promise.all(clients.map(client => allTasks(client)))
     .then(tasksPerWorkspace =>
-      tasksPerWorkspace.reduce((acc, next) => acc.concat(next), []))
+      tasksPerWorkspace.reduce((acc, next) => acc.concat(next), []),
+    )
     .then(tasks => tasks.map(cleanTaskData))
-    .then(tasks => res.send(JSON.stringify({ tasks })))
-    .error(error => res.send(JSON.stringify({ error })));
+    .then(tasks => res.send(JSON.stringify({tasks})))
+    .error(error => {
+      res.status(500);
+      res.send(JSON.stringify({error}));
+    });
 });
 
 // process.env.PORT lets the port be set by Heroku

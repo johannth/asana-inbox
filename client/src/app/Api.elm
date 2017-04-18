@@ -1,11 +1,9 @@
 module Api exposing (..)
 
 import Json.Decode as Decode
-import Dict exposing (Dict)
 import Http
 import Types exposing (..)
 import Date exposing (Date)
-import Set
 
 
 apiUrl : String -> String -> String
@@ -13,10 +11,23 @@ apiUrl apiHost path =
     apiHost ++ path
 
 
-getTasks : String -> Cmd Msg
-getTasks apiHost =
+getJson : List AsanaAccessToken -> String -> Decode.Decoder a -> Http.Request a
+getJson accessTokens url decoder =
+    Http.request
+        { method = "GET"
+        , url = url
+        , headers = [ Http.header "Authorization" ("Bearer " ++ (String.join "," (List.map .token accessTokens))) ]
+        , body = Http.emptyBody
+        , expect = Http.expectJson decoder
+        , timeout = Nothing
+        , withCredentials = False
+        }
+
+
+getTasks : String -> List AsanaAccessToken -> Cmd Msg
+getTasks apiHost accessTokens =
     Http.send LoadTasks <|
-        Http.get (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeTaskList)
+        getJson accessTokens (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeTaskList)
 
 
 decodeTaskList : Decode.Decoder (List AsanaTask)

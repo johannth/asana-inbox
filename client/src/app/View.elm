@@ -32,7 +32,7 @@ expandTasks allTasks datePickers taskList =
 
 
 rootView : Model -> Html Msg
-rootView { taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+rootView { accessTokenFormExpanded, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
     let
         allTasksWithIndexAndCategory =
             expandTasks tasks datePickers (Array.toList taskList)
@@ -43,15 +43,60 @@ rootView { taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
         div [ id "content" ]
             [ h1 [ id "title" ] [ text "Asana Inbox" ]
             , div [ id "body" ]
-                [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
-                , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-                , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-                , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+                [ tokensView accessTokenFormExpanded accessTokens
+                , div
+                    []
+                    [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
+                    , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+                    , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+                    , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+                    ]
                 ]
             , div [ id "footer" ]
                 [ buildInfoView buildInfo
                 ]
             ]
+
+
+tokensView : Bool -> List AsanaAccessToken -> Html Msg
+tokensView accessTokenFormExpanded accessTokens =
+    let
+        expanded =
+            accessTokenFormExpanded || List.length accessTokens == 0
+    in
+        div [ class "accessTokens" ]
+            ((List.map accessTokenView accessTokens)
+                ++ [ addNewAccessTokenView expanded ]
+            )
+
+
+addNewAccessTokenView : Bool -> Html Msg
+addNewAccessTokenView expanded =
+    div [ class "newAccessToken" ]
+        (if expanded then
+            [ input [ class "newAccessTokenInput", placeholder "Name", onInput AddAccessTokenName ] []
+            , input [ class "newAccessTokenInput", placeholder "Access token", onInput AddAccessTokenToken, onEnterPress SaveAccessToken ] []
+            ]
+         else
+            [ toggleAccessTokenButtonView ]
+        )
+
+
+toggleAccessTokenButtonView : Html Msg
+toggleAccessTokenButtonView =
+    div [ class "expandAccessTokenForm", onClick ToggleAccessTokenForm ]
+        [ span []
+            [ text "+"
+            ]
+        ]
+
+
+accessTokenView : AsanaAccessToken -> Html Msg
+accessTokenView accessToken =
+    div [ class "accessToken" ]
+        [ span [ class "accessTokenName" ] [ text accessToken.name ]
+        , div [ class "removeAccessToken", onClick (RemoveAccessToken accessToken) ] [ text "x" ]
+        ]
 
 
 taskListView : Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg

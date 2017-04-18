@@ -10,6 +10,12 @@ import Array exposing (Array)
 import DatePicker
 
 
+type alias AsanaAccessToken =
+    { name : String
+    , token : String
+    }
+
+
 type alias AsanaProject =
     { id : String
     , name : String
@@ -53,6 +59,10 @@ type alias TaskListIndex =
 
 type alias Model =
     { apiHost : String
+    , accessTokenFormExpanded : Bool
+    , newAccessTokenName : String
+    , newAccessTokenToken : String
+    , accessTokens : List AsanaAccessToken
     , tasks : Dict String AsanaTask
     , taskList : Array String
     , buildInfo : BuildInfo
@@ -72,6 +82,11 @@ type Msg
     | EditTaskName String String
     | AddNewTask TaskListIndex
     | FocusResult (Result Dom.Error ())
+    | RemoveAccessToken AsanaAccessToken
+    | ToggleAccessTokenForm
+    | AddAccessTokenName String
+    | AddAccessTokenToken String
+    | SaveAccessToken
     | ToDatePicker String DatePicker.Msg
 
 

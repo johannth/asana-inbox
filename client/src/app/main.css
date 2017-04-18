@@ -27,6 +27,74 @@ body {
   margin: auto;
 }
 
+.accessTokens {
+  margin-bottom: 10px;
+  display: flex;
+}
+
+.accessToken {
+  font-size: 12px;
+  padding: 2px 5px 2px 5px;
+  border: 1px solid rgb(225, 226, 228);
+  border-radius: 3px;
+  display: flex;
+  margin-right: 10px;
+}
+
+.accessTokenName {
+  margin: auto;
+}
+
+.accessToken:hover {
+  border-color: rgb(2, 206, 255);
+  color: rgb(2, 206, 255);
+}
+
+.removeAccessToken {
+  text-align: center;
+  display: none;
+  color: rgb(225, 226, 228);
+  margin: auto 0px auto 10px;
+  cursor: pointer;
+}
+
+.accessToken:hover .removeAccessToken {
+  display: block;
+  color: rgb(2, 206, 255);
+}
+
+.newAccessToken {
+  display: flex;
+}
+
+.expandAccessTokenForm {
+  cursor:pointer;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgb(225, 226, 228);
+  border-radius: 8px;
+  display: flex;
+  margin: auto;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  flex-direction: column;
+  color: rgb(225, 226, 228);
+}
+
+.expandAccessTokenForm:hover {
+  color: rgb(2, 206, 255);
+  border-color: rgb(2, 206, 255);
+}
+
+.expandAccessTokenForm span {
+  margin: auto;
+}
+
+.newAccessTokenInput {
+  margin-right: 5px;
+}
+
 .tasks {
   list-style-type: none;
   margin: 0;
