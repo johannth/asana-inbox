@@ -5,7 +5,7 @@ import cors from 'cors';
 import asana from 'asana';
 import Promise from 'bluebird';
 
-Raven.config('__DSN__').install();
+Raven.config(process.env.SENTRY_DSN).install();
 
 const app = express();
 
