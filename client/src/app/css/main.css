@@ -235,6 +235,10 @@ body {
   margin: auto 0 auto 0;
 }
 
+.elm-datepicker--picker {
+  background-color: #fff;
+}
+
 .elm-datepicker--input {
   width: 70px;
 }
