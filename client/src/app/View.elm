@@ -104,7 +104,7 @@ accessTokenView accessToken =
 
 
 tasksView : Model -> Html Msg
-tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, workspaces, defaultWorkspace, dragDrop, buildInfo, expanded, datePickers } =
     let
         allTasksWithIndexAndCategory =
             expandTasks tasks datePickers (Array.toList taskList)
@@ -116,11 +116,29 @@ tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, acces
             List.sortBy (\( index, task, _ ) -> ( Maybe.withDefault 0 (Maybe.map Date.toTime task.dueOn), index ))
     in
         div []
-            [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new identity
-            , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today identity
-            , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming sortByDate
-            , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later sortByDate
+            [ div [ class "workspaces" ] (List.map (workspaceView defaultWorkspace) (Dict.values workspaces))
+            , div []
+                [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new identity
+                , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today identity
+                , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming sortByDate
+                , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later sortByDate
+                ]
             ]
+
+
+workspaceView : Maybe String -> AsanaWorkspace -> Html Msg
+workspaceView maybeDefaultWorkspace workspace =
+    div
+        [ onClick (SetDefaultWorkspace workspace.id)
+        , class
+            ("workspace"
+                ++ if maybeDefaultWorkspace == Just workspace.id then
+                    " default"
+                   else
+                    ""
+            )
+        ]
+        [ text workspace.name ]
 
 
 taskListView : Date -> Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> (List ( Int, AsanaTask, DatePicker.DatePicker ) -> List ( Int, AsanaTask, DatePicker.DatePicker )) -> Html Msg

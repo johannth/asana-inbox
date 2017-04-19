@@ -51,6 +51,12 @@ getTasks apiHost accessTokens =
         getJson accessTokens (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeTaskList)
 
 
+createTask : String -> List AsanaAccessToken -> AsanaTask -> Cmd Msg
+createTask apiHost accessTokens task =
+    Http.send (TaskCreated task.id) <|
+        postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/") (Http.jsonBody (encodeAsanaTaskForCreation task)) (Decode.field "task" decodeAsanaTask)
+
+
 updateTask : String -> List AsanaAccessToken -> AsanaTask -> AsanaTaskMutation -> Cmd Msg
 updateTask apiHost accessTokens task mutation =
     Http.send TaskUpdated <|
@@ -128,6 +134,14 @@ decodeAssigneeStatus =
                     New
         )
         Decode.string
+
+
+encodeAsanaTaskForCreation : AsanaTask -> Encode.Value
+encodeAsanaTaskForCreation task =
+    Encode.object
+        [ ( "name", Encode.string task.name )
+        , ( "assigneeStatus", encodeAssigneeStatus task.assigneeStatus )
+        ]
 
 
 encodeAsanaTaskMutation : AsanaTaskMutation -> Encode.Value

@@ -75,6 +75,8 @@ type alias Model =
     , accessTokens : List AsanaAccessToken
     , tasks : Dict String AsanaTask
     , taskList : Array String
+    , workspaces : Dict String AsanaWorkspace
+    , defaultWorkspace : Maybe String
     , buildInfo : BuildInfo
     , dragDrop : DragDrop.Model TaskListIndex TaskListIndex
     , expanded : ExpandedState
@@ -88,6 +90,7 @@ type Msg
     | UrlChange Navigation.Location
     | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
     | LoadTasks (Result Http.Error (List AsanaTask))
+    | TaskCreated String (Result Http.Error AsanaTask)
     | TaskUpdated (Result Http.Error ())
     | ToggleExpanded AssigneeStatus
     | CompleteTask String
@@ -104,6 +107,7 @@ type Msg
     | ToDatePicker String DatePicker.Msg
     | ToggleAssigneeStatusOverlay String
     | SetAssigneeStatus String AssigneeStatus
+    | SetDefaultWorkspace String
 
 
 

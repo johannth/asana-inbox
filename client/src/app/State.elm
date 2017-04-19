@@ -11,11 +11,18 @@ import DatePicker exposing (defaultSettings)
 import Api
 import LocalStorage
 import Date
+import Json.Encode as Encode
+import Json.Decode as Decode
 
 
 accessTokensStorageKey : String
 accessTokensStorageKey =
     "accessTokens"
+
+
+defaultWorkspaceStorageKey : String
+defaultWorkspaceStorageKey =
+    "defaultWorkspace"
 
 
 titleInputId : String -> String
@@ -61,6 +68,8 @@ init flags location =
             , accessTokens = []
             , tasks = Dict.empty
             , taskList = Array.empty
+            , workspaces = Dict.empty
+            , defaultWorkspace = Nothing
             , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
             , dragDrop = DragDrop.init
             , expanded = { today = True, new = True, upcoming = False, later = False }
@@ -69,7 +78,7 @@ init flags location =
             }
 
         initialCommands =
-            [ LocalStorage.getItem accessTokensStorageKey ]
+            [ LocalStorage.getItem accessTokensStorageKey, LocalStorage.getItem defaultWorkspaceStorageKey ]
     in
         initialModel ! initialCommands
 
@@ -154,18 +163,30 @@ update msg model =
             model ! []
 
         ReceiveItem item ->
-            let
-                maybeAccessTokens =
-                    case item.key of
-                        accessTokensStorageKey ->
-                            LocalStorage.decodeToType item Api.decodeAccessTokens
-            in
-                case maybeAccessTokens of
-                    Just accessTokens ->
-                        { model | accessTokens = accessTokens } ! [ Api.getTasks model.apiHost accessTokens ]
+            if item.key == accessTokensStorageKey then
+                let
+                    maybeAccessTokens =
+                        LocalStorage.decodeToType item Api.decodeAccessTokens
+                in
+                    case maybeAccessTokens of
+                        Just accessTokens ->
+                            { model | accessTokens = accessTokens } ! [ Api.getTasks model.apiHost accessTokens ]
 
-                    Nothing ->
-                        model ! []
+                        Nothing ->
+                            model ! []
+            else if item.key == defaultWorkspaceStorageKey then
+                let
+                    maybeDefaultWorkspace =
+                        LocalStorage.decodeToType item Decode.string
+                in
+                    case maybeDefaultWorkspace of
+                        Just accessTokens ->
+                            { model | defaultWorkspace = maybeDefaultWorkspace } ! []
+
+                        Nothing ->
+                            model ! []
+            else
+                model ! []
 
         ToggleAccessTokenForm ->
             { model | accessTokenFormExpanded = not model.accessTokenFormExpanded } ! []
@@ -208,10 +229,16 @@ update msg model =
                 tasks =
                     Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
 
+                workspaces =
+                    Dict.fromList (List.map (\task -> ( task.workspace.id, task.workspace )) (Dict.values tasks))
+
                 ( datePickers, datePickerFx ) =
                     initDatePickers (Dict.values tasks)
             in
-                { model | taskList = Array.fromList taskList, tasks = tasks, datePickers = datePickers } ! datePickerFx
+                { model | taskList = Array.fromList taskList, tasks = tasks, datePickers = datePickers, workspaces = workspaces } ! datePickerFx
+
+        SetDefaultWorkspace workspaceId ->
+            { model | defaultWorkspace = Just workspaceId } ! [ LocalStorage.setItem (LocalStorage.encodeToItem defaultWorkspaceStorageKey (Encode.string workspaceId)) ]
 
         ToggleExpanded taskCategory ->
             { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
@@ -239,31 +266,43 @@ update msg model =
         StopEditTaskName taskId ->
             case Dict.get taskId model.tasks of
                 Just task ->
-                    model ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateName task.name) ]
+                    let
+                        command =
+                            if String.startsWith "local-" task.id then
+                                Api.createTask model.apiHost model.accessTokens task
+                            else
+                                Api.updateTask model.apiHost model.accessTokens task (UpdateName task.name)
+                    in
+                        model ! [ command ]
 
                 Nothing ->
                     model ! []
 
         AddNewTask ( assigneeStatus, _, index ) ->
-            let
-                localId =
-                    toString (Array.length model.taskList)
+            case (Maybe.andThen (\workspaceId -> Dict.get workspaceId model.workspaces) model.defaultWorkspace) of
+                Just workspace ->
+                    let
+                        localId =
+                            "local-" ++ toString (Array.length model.taskList)
 
-                task =
-                    AsanaTask localId "" assigneeStatus [] (AsanaWorkspace "" "") "" Nothing
+                        task =
+                            AsanaTask localId "" assigneeStatus [] workspace "" Nothing
 
-                ( datePicker, datePickerFx ) =
-                    DatePicker.init defaultSettings
+                        ( datePicker, datePickerFx ) =
+                            DatePicker.init defaultSettings
 
-                taskList =
-                    insertAfterIndex index task.id model.taskList
-            in
-                { model
-                    | tasks = Dict.insert task.id task model.tasks
-                    , taskList = taskList
-                    , datePickers = Dict.insert task.id datePicker model.datePickers
-                }
-                    ! [ Task.attempt FocusResult (focus (titleInputId task.id)), Cmd.map (ToDatePicker task.id) datePickerFx ]
+                        taskList =
+                            insertAfterIndex index task.id model.taskList
+                    in
+                        { model
+                            | tasks = Dict.insert task.id task model.tasks
+                            , taskList = taskList
+                            , datePickers = Dict.insert task.id datePicker model.datePickers
+                        }
+                            ! [ Task.attempt FocusResult (focus (titleInputId task.id)), Cmd.map (ToDatePicker task.id) datePickerFx ]
+
+                Nothing ->
+                    model ! []
 
         ToDatePicker taskId msg ->
             case ( Dict.get taskId model.datePickers, Dict.get taskId model.tasks ) of
@@ -294,6 +333,34 @@ update msg model =
 
                 _ ->
                     model ! []
+
+        TaskCreated localTaskId (Err message) ->
+            model ! []
+
+        TaskCreated localTaskId (Ok task) ->
+            let
+                tasks =
+                    Dict.insert task.id task model.tasks
+
+                taskList =
+                    Array.map
+                        (\taskId ->
+                            if taskId == localTaskId then
+                                task.id
+                            else
+                                taskId
+                        )
+                        model.taskList
+
+                datePickers =
+                    case Dict.get localTaskId model.datePickers of
+                        Just datePicker ->
+                            Dict.remove localTaskId model.datePickers |> Dict.insert task.id datePicker
+
+                        Nothing ->
+                            model.datePickers
+            in
+                { model | tasks = tasks, taskList = taskList, datePickers = datePickers } ! []
 
         TaskUpdated result ->
             model ! []

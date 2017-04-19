@@ -102,6 +102,26 @@ body {
   margin-right: 5px;
 }
 
+.workspaces {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.workspace {
+  font-size: 12px;
+  margin-right: 10px;
+  cursor: pointer;
+  padding: 2px 5px 2px 5px;
+  border: 1px solid rgb(225, 226, 228);
+  border-radius: 3px;
+}
+
+.workspace.default {
+  cursor: default;
+  font-weight: bold;
+  border-color: #000;
+}
+
 .tasks {
   list-style-type: none;
   margin: 0;

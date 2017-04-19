@@ -126,6 +126,38 @@ app.post('/api/tasks/:workspaceId/:taskId', (req, res) => {
     .error(error => res.json({error}));
 });
 
+app.post('/api/tasks/:workspaceId/', (req, res) => {
+  const clients = createClientsFromRequest(req);
+
+  const body = {
+    assignee: 'me',
+    workspace: req.params.workspaceId,
+    name: req.body.name,
+    assignee_status: req.body.assigneeStatus,
+  };
+
+  Promise.all(
+    clients.map(client => {
+      return client.users.me().then(me => {
+        const workspace = me.workspaces.find(workspace => {
+          return workspace.id == req.params.workspaceId;
+        });
+
+        if (workspace) {
+          return client.tasks.create(body);
+        } else {
+          return Promise.resolve();
+        }
+      });
+    }),
+  )
+    .then(response => res.json({task: taskFromRaw(response[0])}))
+    .error(error => {
+      res.status(500);
+      res.json({error});
+    });
+});
+
 // process.env.PORT lets the port be set by Heroku
 const port = process.env.PORT || 8080;
 
