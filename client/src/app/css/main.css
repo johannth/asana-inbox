@@ -249,6 +249,15 @@ body {
 
 .datePicker {
   margin: auto;
+  font-size: 12px;
+}
+
+.datePicker.today {
+  color: #37C597;
+}
+
+.datePicker.overdue {
+  color: #FC636B;
 }
 
 .task:hover .datePicker {

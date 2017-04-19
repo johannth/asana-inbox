@@ -68,6 +68,7 @@ type alias TaskListIndex =
 
 type alias Model =
     { apiHost : String
+    , today : Date
     , accessTokenFormExpanded : Bool
     , newAccessTokenName : String
     , newAccessTokenToken : String
@@ -111,6 +112,7 @@ type Msg
 
 type alias Flags =
     { apiHost : String
+    , today : Float
     , buildVersion : String
     , buildTier : String
     , buildTime : String

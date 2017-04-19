@@ -6,6 +6,9 @@ import Svg.Attributes
 import Date exposing (Date)
 import Date.Extra.Config.Config_en_us exposing (config)
 import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
+import Date.Extra.Compare
+import Date.Extra.Create
+import Date.Extra.Duration
 import DatePicker
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onBlur)
@@ -101,7 +104,7 @@ accessTokenView accessToken =
 
 
 tasksView : Model -> Html Msg
-tasksView { accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
     let
         allTasksWithIndexAndCategory =
             expandTasks tasks datePickers (Array.toList taskList)
@@ -110,15 +113,15 @@ tasksView { accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens
             DragDrop.getDropId dragDrop
     in
         div []
-            [ taskListView expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new
-            , taskListView expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-            , taskListView expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-            , taskListView expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+            [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new
+            , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+            , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+            , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
             ]
 
 
-taskListView : Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
-taskListView expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
+taskListView : Date -> Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
+taskListView today expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
     let
         tasksWithThisStatus =
             List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
@@ -127,7 +130,7 @@ taskListView expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allT
             \task -> Just task.id == expandedAssigneeStatusOverlay
 
         taskViews =
-            (List.map (\( index, _, task, datePicker ) -> taskView (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
+            (List.map (\( index, _, task, datePicker ) -> taskView today (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
 
         dropView =
             fakeDropView maybeDropId ( assigneeStatus, "", ((List.length tasksWithThisStatus) + 1) )
@@ -179,8 +182,8 @@ classNameIfOnTop maybeDropId ( category, _, index ) =
             ""
 
 
-taskView : Bool -> DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
-taskView assigneeStatusViewIsExpanded datePicker maybeDropId index task =
+taskView : Date -> Bool -> DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
+taskView today assigneeStatusViewIsExpanded datePicker maybeDropId index task =
     let
         classNames =
             "task" ++ (classNameIfOnTop maybeDropId index)
@@ -208,7 +211,7 @@ taskView assigneeStatusViewIsExpanded datePicker maybeDropId index task =
                         else
                             []
                        )
-                    ++ [ taskDatePickerView datePicker task.id task.dueOn
+                    ++ [ taskDatePickerView today datePicker task.id task.dueOn
                        , assigneeStatusView assigneeStatusViewIsExpanded task
                        ]
             )
@@ -240,16 +243,45 @@ taskTitleView index taskId title =
     input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onBlur (StopEditTaskName taskId), onEnterPress (AddNewTask index), value title ] []
 
 
-taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
-taskDatePickerView datePicker taskId maybeDueDate =
+removeTimePart : Date -> Date
+removeTimePart date =
+    Date.Extra.Create.dateFromFields (Date.year date) (Date.month date) (Date.day date) 0 0 0 0
+
+
+friendlyDate : Date -> Date -> ( String, String )
+friendlyDate today date =
+    let
+        todayDay =
+            removeTimePart today
+
+        dateDay =
+            removeTimePart date
+
+        sevenDays =
+            Date.Extra.Duration.add Date.Extra.Duration.Week 1 todayDay
+    in
+        if Date.Extra.Compare.is Date.Extra.Compare.Before dateDay todayDay then
+            ( "overdue", "Overdue" )
+        else if Date.Extra.Compare.is Date.Extra.Compare.Same dateDay todayDay then
+            ( "today", "Today" )
+        else if Date.Extra.Compare.is Date.Extra.Compare.SameOrBefore dateDay sevenDays then
+            ( "", format config "%A" date )
+        else if (Date.year todayDay) == (Date.year dateDay) then
+            ( "", format config "%e %B" date )
+        else
+            ( "", format config "%e %B, %Y" date )
+
+
+taskDatePickerView : Date -> DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
+taskDatePickerView today datePicker taskId maybeDueDate =
     div [ class "datePickerContainer" ]
         [ (case maybeDueDate of
             Just dueDate ->
                 let
-                    formattedDate =
-                        format config config.format.date dueDate
+                    ( className, formattedDate ) =
+                        (friendlyDate today dueDate)
                 in
-                    div [ class "datePicker" ] [ text formattedDate ]
+                    div [ class ("datePicker" ++ " " ++ className) ] [ text formattedDate ]
 
             Nothing ->
                 text ""

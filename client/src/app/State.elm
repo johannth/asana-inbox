@@ -10,6 +10,7 @@ import Task
 import DatePicker exposing (defaultSettings)
 import Api
 import LocalStorage
+import Date
 
 
 accessTokensStorageKey : String
@@ -53,6 +54,7 @@ init flags location =
     let
         initialModel =
             { apiHost = flags.apiHost
+            , today = Date.fromTime flags.today
             , accessTokenFormExpanded = False
             , newAccessTokenName = ""
             , newAccessTokenToken = ""
