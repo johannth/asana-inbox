@@ -1,11 +1,16 @@
-import newrelic from 'newrelic';
+import Raven from 'raven';
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import asana from 'asana';
 import Promise from 'bluebird';
 
+Raven.config('__DSN__').install();
+
 const app = express();
+
+app.use(Raven.requestHandler());
+app.use(Raven.errorHandler());
 
 app.use(bodyParser.json());
 app.use(cors());
