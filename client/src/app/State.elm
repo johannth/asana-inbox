@@ -247,7 +247,7 @@ update msg model =
                     toString (Array.length model.taskList)
 
                 task =
-                    AsanaTask localId assigneeStatus [] (AsanaWorkspace "" "") "" Nothing
+                    AsanaTask localId "" assigneeStatus [] (AsanaWorkspace "" "") "" Nothing
 
                 ( datePicker, datePickerFx ) =
                     DatePicker.init defaultSettings

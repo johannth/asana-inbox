@@ -64,8 +64,9 @@ decodeTaskList =
 
 decodeAsanaTask : Decode.Decoder AsanaTask
 decodeAsanaTask =
-    Decode.map6 AsanaTask
+    Decode.map7 AsanaTask
         (Decode.field "id" Decode.string)
+        (Decode.field "url" Decode.string)
         (Decode.field "assigneeStatus" decodeAssigneeStatus)
         (Decode.field "projects" (Decode.list decodeAsanaProject))
         (Decode.field "workspace" decodeAsanaWorkspace)

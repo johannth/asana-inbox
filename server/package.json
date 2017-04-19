@@ -11,6 +11,7 @@
     "node": "7.x"
   },
   "devDependencies": {
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
     "babel-watch": "^2.0.6"
   },
   "dependencies": {

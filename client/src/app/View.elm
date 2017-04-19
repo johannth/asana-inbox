@@ -199,8 +199,14 @@ taskView datePicker maybeDropId index task =
                         [ text task.workspace.name ]
                     , taskTitleView index task.id task.name
                     ]
-                , taskDatePickerView datePicker task.id task.dueOn
                 ]
+                    ++ (if task.url /= "" then
+                            [ a [ class "taskUrl", target "_blank", href task.url ] [ text "Link" ] ]
+                        else
+                            []
+                       )
+                    ++ [ taskDatePickerView datePicker task.id task.dueOn
+                       ]
             )
 
 

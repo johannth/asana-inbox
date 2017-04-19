@@ -1,5 +1,5 @@
-var styles = require('../app/main.css');
-var datePicker = require('../app/datepicker.css');
+var styles = require('../app/css/main.css');
+var datePicker = require('../app/css/datepicker.css');
 
 var Elm = require('../app/Main.elm');
 var mountNode = document.getElementById('app');

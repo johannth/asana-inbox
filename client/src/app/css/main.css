@@ -160,12 +160,12 @@ body {
 }
 
 .taskCompletionButton:hover {
-  border-color: rgb(2, 206, 255);
+  border-color: #37C597;
 }
 
 .taskCompletionButton:hover svg
 {
-  fill: rgb(2, 206, 255);
+  fill: #37C597;
 }
 
 .taskCompletionButton svg
@@ -209,13 +209,34 @@ body {
   outline: none;
 }
 
+.taskUrl {
+  visibility: hidden;
+  margin: auto;
+  text-decoration: none;
+  font-size: 14px;
+  color: black;
+}
+
+.taskUrl:hover {
+  text-decoration: underline;
+}
+
+.task:hover .taskUrl {
+  visibility: visible;
+}
+
 .datePickerContainer {
+  margin-left: 10px;
   display: flex;
 }
 
 .elm-datepicker--container {
   display: none;
   margin: auto 0 auto 0;
+}
+
+.elm-datepicker--input {
+  width: 70px;
 }
 
 .task:hover .elm-datepicker--container {

@@ -50,13 +50,18 @@ const allTasks = client => {
 };
 
 const taskFromRaw = rawTask => {
-  return {
+  const task = {
     id: `${rawTask.id}`,
     dueOn: rawTask.due_on,
     name: rawTask.name,
     projects: rawTask.projects.map(projectFromRaw),
     workspace: workspaceFromRaw(rawTask.workspace),
     assigneeStatus: rawTask.assignee_status,
+  };
+
+  return {
+    ...task,
+    url: `https://app.asana.com/0/${task.workspace.id}/${task.id}`,
   };
 };
 

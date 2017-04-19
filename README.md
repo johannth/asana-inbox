@@ -14,7 +14,6 @@ You need to start by installing the following base dependencies:
 
 + node
 + elm
-+ docker
 
 Then install all dependencies:
 

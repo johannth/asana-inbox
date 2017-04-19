@@ -31,6 +31,7 @@ type alias AsanaWorkspace =
 
 type alias AsanaTask =
     { id : String
+    , url : String
     , assigneeStatus : AssigneeStatus
     , projects : List AsanaProject
     , workspace : AsanaWorkspace
