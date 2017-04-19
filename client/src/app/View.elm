@@ -264,11 +264,16 @@ friendlyDate today date =
 
         sevenDays =
             Date.Extra.Duration.add Date.Extra.Duration.Week 1 todayDay
+
+        tomorrow =
+            Date.Extra.Duration.add Date.Extra.Duration.Day 1 todayDay
     in
         if Date.Extra.Compare.is Date.Extra.Compare.Before dateDay todayDay then
             ( "overdue", "Overdue" )
         else if Date.Extra.Compare.is Date.Extra.Compare.Same dateDay todayDay then
             ( "today", "Today" )
+        else if Date.Extra.Compare.is Date.Extra.Compare.Same dateDay tomorrow then
+            ( "tomorrow", "Tomorrow" )
         else if Date.Extra.Compare.is Date.Extra.Compare.SameOrBefore dateDay sevenDays then
             ( "", format config "%A" date )
         else if (Date.year todayDay) == (Date.year dateDay) then
