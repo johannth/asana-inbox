@@ -101,7 +101,7 @@ accessTokenView accessToken =
 
 
 tasksView : Model -> Html Msg
-tasksView { accessTokenFormExpanded, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
+tasksView { accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, dragDrop, buildInfo, expanded, datePickers } =
     let
         allTasksWithIndexAndCategory =
             expandTasks tasks datePickers (Array.toList taskList)
@@ -110,21 +110,24 @@ tasksView { accessTokenFormExpanded, accessTokens, taskList, tasks, dragDrop, bu
             DragDrop.getDropId dragDrop
     in
         div []
-            [ taskListView True New "New" allTasksWithIndexAndCategory dropId expanded.new
-            , taskListView False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-            , taskListView False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-            , taskListView False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+            [ taskListView expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new
+            , taskListView expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
+            , taskListView expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
+            , taskListView expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
             ]
 
 
-taskListView : Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
-taskListView hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
+taskListView : Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
+taskListView expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
     let
         tasksWithThisStatus =
             List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
 
+        hasExpandedAssigneeStatusOverlay =
+            \task -> Just task.id == expandedAssigneeStatusOverlay
+
         taskViews =
-            (List.map (\( index, _, task, datePicker ) -> taskView datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
+            (List.map (\( index, _, task, datePicker ) -> taskView (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
 
         dropView =
             fakeDropView maybeDropId ( assigneeStatus, "", ((List.length tasksWithThisStatus) + 1) )
@@ -176,8 +179,8 @@ classNameIfOnTop maybeDropId ( category, _, index ) =
             ""
 
 
-taskView : DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
-taskView datePicker maybeDropId index task =
+taskView : Bool -> DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
+taskView assigneeStatusViewIsExpanded datePicker maybeDropId index task =
     let
         classNames =
             "task" ++ (classNameIfOnTop maybeDropId index)
@@ -206,6 +209,7 @@ taskView datePicker maybeDropId index task =
                             []
                        )
                     ++ [ taskDatePickerView datePicker task.id task.dueOn
+                       , assigneeStatusView assigneeStatusViewIsExpanded task
                        ]
             )
 
@@ -267,6 +271,25 @@ onEnterPress tagger =
             )
             Html.Events.keyCode
         )
+
+
+assigneeStatusView : Bool -> AsanaTask -> Html Msg
+assigneeStatusView expanded task =
+    div [ class "taskAssigneeStatusContainer" ]
+        [ div [ class "taskAssigneeStatus", onClick (ToggleAssigneeStatusOverlay task.id) ] []
+        , (if expanded then
+            ul [ class "taskAssigneeStatusOverlay" ]
+                [ li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Today) ]
+                    [ text "Mark for Today" ]
+                , li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Upcoming) ]
+                    [ text "Mark for Upcoming" ]
+                , li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Later) ]
+                    [ text "Mark for Later" ]
+                ]
+           else
+            div [] []
+          )
+        ]
 
 
 fakeDropView : Maybe TaskListIndex -> TaskListIndex -> Html Msg

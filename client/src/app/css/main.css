@@ -256,6 +256,53 @@ body {
 
 }
 
+.taskAssigneeStatusContainer {
+  position: relative;
+  display: flex;
+}
+
+.taskAssigneeStatus {
+  visibility: hidden;
+  border: 2px solid rgb(225, 226, 228);
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  margin: auto 5px auto 5px;
+  cursor: pointer;
+}
+
+.taskAssigneeStatus:hover {
+  border-color: rgb(2, 206, 255);
+}
+
+.task:hover .taskAssigneeStatus {
+  visibility: visible;
+}
+
+.taskAssigneeStatusOverlay {
+  background-color: #fff;
+  position: absolute;
+  border: 1px solid rgb(225, 226, 228);
+  border-radius: 3px;
+  padding: 3px 0 3px 0;
+  list-style-type: none;
+  left: 5px;
+  top: 25px;
+  width: 130px;
+  z-index: 1000;
+}
+
+.taskAssigneeStatusOverlayItem {
+  font-size: 12px;
+  padding: 4px 8px 4px 8px;
+  cursor: pointer;
+}
+
+.taskAssigneeStatusOverlayItem:hover {
+  color: #fff;
+  background-color: rgb(2, 206, 255);
+}
+
 .fakeDropView {
   height: 15px;
 }

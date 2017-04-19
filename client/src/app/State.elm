@@ -63,6 +63,7 @@ init flags location =
             , dragDrop = DragDrop.init
             , expanded = { today = True, new = True, upcoming = False, later = False }
             , datePickers = Dict.empty
+            , expandedAssigneeStatusOverlay = Nothing
             }
 
         initialCommands =
@@ -322,3 +323,26 @@ update msg model =
                     , tasks = tasks
                 }
                     ! commands
+
+        ToggleAssigneeStatusOverlay taskId ->
+            { model
+                | expandedAssigneeStatusOverlay =
+                    (if model.expandedAssigneeStatusOverlay == Just taskId then
+                        Nothing
+                     else
+                        Just taskId
+                    )
+            }
+                ! []
+
+        SetAssigneeStatus taskId assigneeStatus ->
+            case Dict.get taskId model.tasks of
+                Just task ->
+                    let
+                        updatedTask =
+                            { task | assigneeStatus = assigneeStatus }
+                    in
+                        { model | tasks = Dict.insert taskId updatedTask model.tasks, expandedAssigneeStatusOverlay = Nothing } ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus assigneeStatus) ]
+
+                Nothing ->
+                    model ! []

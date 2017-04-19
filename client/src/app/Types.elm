@@ -78,6 +78,7 @@ type alias Model =
     , dragDrop : DragDrop.Model TaskListIndex TaskListIndex
     , expanded : ExpandedState
     , datePickers : Dict String DatePicker.DatePicker
+    , expandedAssigneeStatusOverlay : Maybe String
     }
 
 
@@ -100,6 +101,8 @@ type Msg
     | SaveAccessToken
     | ReceiveItem LocalStorage.LocalStorageItem
     | ToDatePicker String DatePicker.Msg
+    | ToggleAssigneeStatusOverlay String
+    | SetAssigneeStatus String AssigneeStatus
 
 
 
