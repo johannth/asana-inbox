@@ -5,6 +5,8 @@ import Json.Encode as Encode
 import Http
 import Types exposing (..)
 import Date exposing (Date)
+import Date.Extra.Config.Config_en_us exposing (config)
+import Date.Extra.Format as Format exposing (format, isoDateFormat)
 
 
 apiUrl : String -> String -> String
@@ -137,7 +139,7 @@ encodeAsanaTaskMutation mutation =
             Encode.object [ ( "assigneeStatus", encodeAssigneeStatus status ) ]
 
         UpdateDueOn dueDate ->
-            Encode.object [ ( "dueOn", Encode.bool False ) ]
+            Encode.object [ ( "dueOn", Encode.string (format config isoDateFormat dueDate) ) ]
 
         UpdateName name ->
             Encode.object [ ( "name", Encode.string name ) ]

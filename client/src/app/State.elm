@@ -264,13 +264,13 @@ update msg model =
                         datePickers =
                             Dict.insert taskId newDatePicker model.datePickers
 
-                        updatedTask =
+                        ( updatedTask, command ) =
                             case maybeDate of
                                 Just date ->
-                                    { task | dueOn = Just date }
+                                    ( { task | dueOn = Just date }, Api.updateTask model.apiHost model.accessTokens task (UpdateDueOn date) )
 
                                 Nothing ->
-                                    task
+                                    ( task, Cmd.none )
 
                         tasks =
                             Dict.insert taskId updatedTask model.tasks
@@ -279,7 +279,7 @@ update msg model =
                             | datePickers = datePickers
                             , tasks = tasks
                         }
-                            ! [ Cmd.map (ToDatePicker taskId) datePickerFx ]
+                            ! [ Cmd.map (ToDatePicker taskId) datePickerFx, command ]
 
                 _ ->
                     model ! []

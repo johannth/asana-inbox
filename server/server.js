@@ -99,7 +99,6 @@ const mutationsToRaw = body => {
 
 app.post('/api/tasks/:workspaceId/:taskId', (req, res) => {
   const clients = createClientsFromRequest(req);
-
   Promise.all(
     clients.map(client => {
       return client.users.me().then(me => {
