@@ -233,6 +233,14 @@ update msg model =
                 Nothing ->
                     model ! []
 
+        StopEditTaskName taskId ->
+            case Dict.get taskId model.tasks of
+                Just task ->
+                    model ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateName task.name) ]
+
+                Nothing ->
+                    model ! []
+
         AddNewTask ( assigneeStatus, _, index ) ->
             let
                 localId =

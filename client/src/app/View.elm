@@ -8,7 +8,7 @@ import Date.Extra.Config.Config_en_us exposing (config)
 import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
 import DatePicker
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onClick, onInput, onBlur)
 import Dict exposing (Dict)
 import Types exposing (..)
 import Html5.DragDrop as DragDrop
@@ -227,7 +227,7 @@ checkMark =
 
 taskTitleView : TaskListIndex -> String -> String -> Html Msg
 taskTitleView index taskId title =
-    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onEnterPress (AddNewTask index), value title ] []
+    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onBlur (StopEditTaskName taskId), onEnterPress (AddNewTask index), value title ] []
 
 
 taskDatePickerView : DatePicker.DatePicker -> String -> Maybe Date -> Html Msg

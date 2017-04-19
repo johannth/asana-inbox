@@ -89,6 +89,7 @@ type Msg
     | ToggleExpanded AssigneeStatus
     | CompleteTask String
     | EditTaskName String String
+    | StopEditTaskName String
     | AddNewTask TaskListIndex
     | FocusResult (Result Dom.Error ())
     | RemoveAccessToken AsanaAccessToken
