@@ -111,26 +111,31 @@ tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, acces
 
         dropId =
             DragDrop.getDropId dragDrop
+
+        sortByDate =
+            List.sortBy (\( index, task, _ ) -> ( Maybe.withDefault 0 (Maybe.map Date.toTime task.dueOn), index ))
     in
         div []
-            [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new
-            , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today
-            , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming
-            , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later
+            [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new identity
+            , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today identity
+            , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming sortByDate
+            , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later sortByDate
             ]
 
 
-taskListView : Date -> Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> Html Msg
-taskListView today expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded =
+taskListView : Date -> Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> (List ( Int, AsanaTask, DatePicker.DatePicker ) -> List ( Int, AsanaTask, DatePicker.DatePicker )) -> Html Msg
+taskListView today expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded sorter =
     let
         tasksWithThisStatus =
             List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
+                |> List.map (\( index, assigneeStatus, task, datePicker ) -> ( index, task, datePicker ))
+                |> sorter
 
         hasExpandedAssigneeStatusOverlay =
             \task -> Just task.id == expandedAssigneeStatusOverlay
 
         taskViews =
-            (List.map (\( index, _, task, datePicker ) -> taskView today (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
+            (List.map (\( index, task, datePicker ) -> taskView today (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
 
         dropView =
             fakeDropView maybeDropId ( assigneeStatus, "", ((List.length tasksWithThisStatus) + 1) )
