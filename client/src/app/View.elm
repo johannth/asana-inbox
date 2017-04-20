@@ -38,7 +38,7 @@ rootView : Model -> Html Msg
 rootView model =
     let
         hasNoTasks =
-            Array.length model.taskList == 0
+            Dict.size model.tasks == 0
 
         isLoading =
             hasNoTasks && List.length model.accessTokens /= 0
@@ -112,6 +112,12 @@ tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, acces
         dropId =
             DragDrop.getDropId dragDrop
 
+        preferredOrder =
+            List.indexedMap (\index taskId -> ( taskId, index )) (Array.toList taskList) |> Dict.fromList
+
+        sortByPreferred =
+            List.sortBy (\( _, task, _ ) -> Maybe.withDefault 0 (Dict.get task.id preferredOrder))
+
         sortByDate =
             List.sortBy (\( index, task, _ ) -> ( Maybe.withDefault 0 (Maybe.map Date.toTime task.dueOn), index ))
     in
@@ -119,7 +125,7 @@ tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, acces
             [ div [ class "workspaces" ] (List.map (workspaceView defaultWorkspace) (Dict.values workspaces))
             , div []
                 [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new identity
-                , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today identity
+                , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today sortByPreferred
                 , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming sortByDate
                 , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later sortByDate
                 ]

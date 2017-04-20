@@ -13,6 +13,7 @@ import LocalStorage
 import Date
 import Json.Encode as Encode
 import Json.Decode as Decode
+import Set
 
 
 accessTokensStorageKey : String
@@ -23,6 +24,11 @@ accessTokensStorageKey =
 defaultWorkspaceStorageKey : String
 defaultWorkspaceStorageKey =
     "defaultWorkspace"
+
+
+taskListStorageKey : String
+taskListStorageKey =
+    "taskList"
 
 
 titleInputId : String -> String
@@ -78,7 +84,7 @@ init flags location =
             }
 
         initialCommands =
-            [ LocalStorage.getItem accessTokensStorageKey, LocalStorage.getItem defaultWorkspaceStorageKey ]
+            [ LocalStorage.getItem accessTokensStorageKey, LocalStorage.getItem defaultWorkspaceStorageKey, LocalStorage.getItem taskListStorageKey ]
     in
         initialModel ! initialCommands
 
@@ -147,7 +153,7 @@ updateAssigneeStatus taskId assigneeStatus tasks =
 
 saveApiTokens : List AsanaAccessToken -> Cmd Msg
 saveApiTokens accessTokens =
-    LocalStorage.setItem (LocalStorage.encodeToItem accessTokensStorageKey (Api.encodeAccessTokens accessTokens))
+    LocalStorage.setItem accessTokensStorageKey accessTokens Api.encodeAccessTokens
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -185,6 +191,12 @@ update msg model =
 
                         Nothing ->
                             model ! []
+            else if item.key == taskListStorageKey then
+                let
+                    taskList =
+                        Maybe.withDefault [] (LocalStorage.decodeToType item (Decode.list Decode.string))
+                in
+                    { model | taskList = Array.fromList taskList } ! []
             else
                 model ! []
 
@@ -223,8 +235,21 @@ update msg model =
 
         LoadTasks (Ok newTasks) ->
             let
+                currentlySortedTaskIds =
+                    Set.fromList (Array.toList model.taskList)
+
+                unsortedIds =
+                    List.filterMap
+                        (\task ->
+                            if not (Set.member task.id currentlySortedTaskIds) then
+                                Just task.id
+                            else
+                                Nothing
+                        )
+                        newTasks
+
                 taskList =
-                    List.map .id newTasks
+                    (unsortedIds ++ (Array.toList model.taskList))
 
                 tasks =
                     Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
@@ -238,7 +263,7 @@ update msg model =
                 { model | taskList = Array.fromList taskList, tasks = tasks, datePickers = datePickers, workspaces = workspaces } ! datePickerFx
 
         SetDefaultWorkspace workspaceId ->
-            { model | defaultWorkspace = Just workspaceId } ! [ LocalStorage.setItem (LocalStorage.encodeToItem defaultWorkspaceStorageKey (Encode.string workspaceId)) ]
+            { model | defaultWorkspace = Just workspaceId } ! [ LocalStorage.setItem defaultWorkspaceStorageKey workspaceId Encode.string ]
 
         ToggleExpanded taskCategory ->
             { model | expanded = toggleExpandedState taskCategory model.expanded } ! []
@@ -377,7 +402,8 @@ update msg model =
                                 Just task ->
                                     ( moveItemInArray dragIndex dropIndex model.taskList
                                     , updateAssigneeStatus dragTaskId dropAssigneeStatus model.tasks
-                                    , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus dropAssigneeStatus) ]
+                                    , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus dropAssigneeStatus)
+                                      ]
                                     )
 
                                 Nothing ->
@@ -385,13 +411,15 @@ update msg model =
 
                         Nothing ->
                             ( model.taskList, model.tasks, [] )
+
+                updatedModel =
+                    { model
+                        | dragDrop = model_
+                        , taskList = taskList
+                        , tasks = tasks
+                    }
             in
-                { model
-                    | dragDrop = model_
-                    , taskList = taskList
-                    , tasks = tasks
-                }
-                    ! commands
+                updatedModel ! (commands ++ [ LocalStorage.setItem taskListStorageKey (Array.toList updatedModel.taskList) (List.map Encode.string >> Encode.list) ])
 
         ToggleAssigneeStatusOverlay taskId ->
             { model

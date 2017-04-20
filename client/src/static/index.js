@@ -11,7 +11,7 @@ var app = Elm.Main.embed(mountNode, {
   apiHost: API_HOST,
 });
 
-app.ports.setItem.subscribe(function(item) {
+app.ports.setItemRaw.subscribe(function(item) {
   localStorage.setItem(item.key, item.value);
 });
 

@@ -10,9 +10,13 @@ type alias LocalStorageItem =
     }
 
 
-encodeToItem : String -> Encode.Value -> LocalStorageItem
-encodeToItem key value =
-    LocalStorageItem key (Just (Encode.encode 0 value))
+setItem : String -> a -> (a -> Encode.Value) -> Cmd msg
+setItem key value encoder =
+    let
+        encodedValue =
+            encoder value
+    in
+        setItemRaw (LocalStorageItem key (Just (Encode.encode 0 encodedValue)))
 
 
 decodeToType : LocalStorageItem -> Decode.Decoder a -> Maybe a
@@ -25,7 +29,7 @@ decodeToType item decoder =
             Nothing
 
 
-port setItem : LocalStorageItem -> Cmd msg
+port setItemRaw : LocalStorageItem -> Cmd msg
 
 
 port getItem : String -> Cmd msg
