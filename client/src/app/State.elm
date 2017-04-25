@@ -3,7 +3,6 @@ module State exposing (..)
 import Types exposing (..)
 import Navigation
 import Html5.DragDrop as DragDrop
-import Array exposing (Array)
 import Dict exposing (Dict)
 import Dom exposing (focus)
 import Task
@@ -73,7 +72,7 @@ init flags location =
             , newAccessTokenToken = ""
             , accessTokens = []
             , tasks = Dict.empty
-            , taskList = Array.empty
+            , taskList = Nothing
             , workspaces = Dict.empty
             , defaultWorkspace = Nothing
             , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
@@ -87,38 +86,6 @@ init flags location =
             [ LocalStorage.getItem accessTokensStorageKey, LocalStorage.getItem defaultWorkspaceStorageKey, LocalStorage.getItem taskListStorageKey ]
     in
         initialModel ! initialCommands
-
-
-moveItemInArray : Int -> Int -> Array comparable -> Array comparable
-moveItemInArray fromIndex toIndex array =
-    case Array.get fromIndex array of
-        Just item ->
-            let
-                filterItem =
-                    Array.filter (\x -> x /= item)
-
-                firstHalf =
-                    (Array.slice 0 toIndex array) |> filterItem |> Array.toList
-
-                secondHalf =
-                    (Array.slice toIndex (Array.length array)) array |> filterItem |> Array.toList
-            in
-                Array.fromList (firstHalf ++ [ item ] ++ secondHalf)
-
-        Nothing ->
-            array
-
-
-insertAfterIndex : Int -> a -> Array a -> Array a
-insertAfterIndex index item array =
-    let
-        firstHalf =
-            (Array.slice 0 (index + 1) array) |> Array.toList
-
-        secondHalf =
-            (Array.slice (index + 1) (Array.length array) array) |> Array.toList
-    in
-        Array.fromList (firstHalf ++ [ item ] ++ secondHalf)
 
 
 toggleExpandedState : AssigneeStatus -> ExpandedState -> ExpandedState
@@ -154,6 +121,92 @@ updateAssigneeStatus taskId assigneeStatus tasks =
 saveApiTokens : List AsanaAccessToken -> Cmd Msg
 saveApiTokens accessTokens =
     LocalStorage.setItem accessTokensStorageKey accessTokens Api.encodeAccessTokens
+
+
+dropInTaskList : DragTarget -> DropTarget -> Maybe TaskList -> Maybe TaskList
+dropInTaskList dragTarget dropTarget maybeTaskList =
+    case maybeTaskList of
+        Just taskList ->
+            Just (dropInTaskList_ dragTarget dropTarget taskList)
+
+        Nothing ->
+            Nothing
+
+
+updateTaskList : (List String -> List String) -> AssigneeStatus -> TaskList -> TaskList
+updateTaskList updater assigneeStatus taskList =
+    case assigneeStatus of
+        New ->
+            { taskList | new = updater taskList.new }
+
+        Today ->
+            { taskList | today = updater taskList.today }
+
+        Upcoming ->
+            { taskList | upcoming = updater taskList.upcoming }
+
+        Later ->
+            { taskList | later = updater taskList.later }
+
+
+removeIdFromTaskList : AssigneeStatus -> String -> TaskList -> TaskList
+removeIdFromTaskList assigneeStatus taskIdToRemove taskList =
+    updateTaskList (List.filter (\taskId -> taskId /= taskIdToRemove)) assigneeStatus taskList
+
+
+insertIdIntoTaskList : AssigneeStatus -> String -> (String -> List String -> List String) -> TaskList -> TaskList
+insertIdIntoTaskList assigneeStatus taskId inserter taskList =
+    updateTaskList (inserter taskId) assigneeStatus taskList
+
+
+dropInTaskList_ : DragTarget -> DropTarget -> TaskList -> TaskList
+dropInTaskList_ dragTarget dropTarget taskList =
+    let
+        ( dropAssigneeStatus, inserter ) =
+            case dropTarget of
+                Before assigneeStatus dropTaskId ->
+                    ( assigneeStatus
+                    , (\taskIdToInsert taskIds ->
+                        List.concatMap
+                            (\taskId ->
+                                if taskId == dropTaskId then
+                                    [ taskIdToInsert, taskId ]
+                                else
+                                    [ taskId ]
+                            )
+                            taskIds
+                      )
+                    )
+
+                After assigneeStatus dropTaskId ->
+                    ( assigneeStatus
+                    , (\taskIdToInsert taskIds ->
+                        List.concatMap
+                            (\taskId ->
+                                if taskId == dropTaskId then
+                                    [ taskId, taskIdToInsert ]
+                                else
+                                    [ taskId ]
+                            )
+                            taskIds
+                      )
+                    )
+
+                End assigneeStatus ->
+                    ( assigneeStatus, (\taskIdToInsert taskIds -> taskIds ++ [ taskIdToInsert ]) )
+    in
+        removeIdFromTaskList dragTarget.assigneeStatus dragTarget.targetId taskList
+            |> insertIdIntoTaskList dropAssigneeStatus dragTarget.targetId inserter
+
+
+saveTaskList : Maybe TaskList -> Cmd Msg
+saveTaskList maybeTaskList =
+    case maybeTaskList of
+        Just taskList ->
+            LocalStorage.setItem taskListStorageKey taskList Api.encodeTaskList
+
+        Nothing ->
+            Cmd.none
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -194,9 +247,9 @@ update msg model =
             else if item.key == taskListStorageKey then
                 let
                     taskList =
-                        Maybe.withDefault [] (LocalStorage.decodeToType item (Decode.list Decode.string))
+                        LocalStorage.decodeToType item Api.decodeTaskList
                 in
-                    { model | taskList = Array.fromList taskList } ! []
+                    { model | taskList = taskList } ! []
             else
                 model ! []
 
@@ -235,21 +288,42 @@ update msg model =
 
         LoadTasks (Ok newTasks) ->
             let
-                currentlySortedTaskIds =
-                    Set.fromList (Array.toList model.taskList)
+                new =
+                    Dict.values tasks
+                        |> List.filter (\task -> task.assigneeStatus == New)
+                        |> List.map .id
 
-                unsortedIds =
-                    List.filterMap
-                        (\task ->
-                            if not (Set.member task.id currentlySortedTaskIds) then
-                                Just task.id
-                            else
-                                Nothing
-                        )
-                        newTasks
+                currentTodayTasks =
+                    Maybe.withDefault [] (Maybe.map .today model.taskList)
+
+                currentTodayTasksLookUp =
+                    Set.fromList currentTodayTasks
+
+                newTodayTasks =
+                    Dict.values tasks
+                        |> List.filter (\task -> task.assigneeStatus == Today && not (Set.member task.id currentTodayTasksLookUp))
+                        |> List.map .id
+
+                today =
+                    newTodayTasks ++ currentTodayTasks
+
+                sortByDate =
+                    List.sortBy (.dueOn >> Maybe.map Date.toTime >> Maybe.withDefault 0)
+
+                upcoming =
+                    Dict.values tasks
+                        |> List.filter (\task -> task.assigneeStatus == Upcoming)
+                        |> sortByDate
+                        |> List.map .id
+
+                later =
+                    Dict.values tasks
+                        |> List.filter (\task -> task.assigneeStatus == Later)
+                        |> sortByDate
+                        |> List.map .id
 
                 taskList =
-                    (unsortedIds ++ (Array.toList model.taskList))
+                    TaskList new today upcoming later
 
                 tasks =
                     Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
@@ -260,7 +334,13 @@ update msg model =
                 ( datePickers, datePickerFx ) =
                     initDatePickers (Dict.values tasks)
             in
-                { model | taskList = Array.fromList taskList, tasks = tasks, datePickers = datePickers, workspaces = workspaces } ! datePickerFx
+                { model
+                    | taskList = Just taskList
+                    , tasks = tasks
+                    , datePickers = datePickers
+                    , workspaces = workspaces
+                }
+                    ! datePickerFx
 
         SetDefaultWorkspace workspaceId ->
             { model | defaultWorkspace = Just workspaceId } ! [ LocalStorage.setItem defaultWorkspaceStorageKey workspaceId Encode.string ]
@@ -271,7 +351,11 @@ update msg model =
         CompleteTask completedTaskId ->
             case Dict.get completedTaskId model.tasks of
                 Just task ->
-                    { model | taskList = Array.filter (\taskId -> taskId /= completedTaskId) model.taskList } ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
+                    let
+                        updatedTask =
+                            { task | completed = True }
+                    in
+                        { model | tasks = Dict.insert updatedTask.id updatedTask model.tasks } ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
 
                 Nothing ->
                     model ! []
@@ -303,21 +387,21 @@ update msg model =
                 Nothing ->
                     model ! []
 
-        AddNewTask ( assigneeStatus, _, index ) ->
+        AddNewTask assigneeStatus taskId ->
             case (Maybe.andThen (\workspaceId -> Dict.get workspaceId model.workspaces) model.defaultWorkspace) of
                 Just workspace ->
                     let
                         localId =
-                            "local-" ++ toString (Array.length model.taskList)
+                            "local-" ++ toString (Dict.size model.tasks)
 
                         task =
-                            AsanaTask localId "" assigneeStatus [] workspace "" Nothing
+                            AsanaTask localId "" assigneeStatus [] workspace "" Nothing False
 
                         ( datePicker, datePickerFx ) =
                             DatePicker.init defaultSettings
 
                         taskList =
-                            insertAfterIndex index task.id model.taskList
+                            dropInTaskList (DragTarget task.assigneeStatus task.id) (After assigneeStatus taskId) model.taskList
                     in
                         { model
                             | tasks = Dict.insert task.id task model.tasks
@@ -368,12 +452,17 @@ update msg model =
                     Dict.insert task.id task model.tasks
 
                 taskList =
-                    Array.map
-                        (\taskId ->
-                            if taskId == localTaskId then
-                                task.id
-                            else
-                                taskId
+                    Maybe.map
+                        (updateTaskList
+                            (List.map
+                                (\taskId ->
+                                    if taskId == localTaskId then
+                                        task.id
+                                    else
+                                        taskId
+                                )
+                            )
+                            task.assigneeStatus
                         )
                         model.taskList
 
@@ -384,42 +473,53 @@ update msg model =
 
                         Nothing ->
                             model.datePickers
+
+                updatedModel =
+                    { model
+                        | tasks = tasks
+                        , taskList = taskList
+                        , datePickers = datePickers
+                    }
             in
-                { model | tasks = tasks, taskList = taskList, datePickers = datePickers } ! []
+                updatedModel ! [ saveTaskList updatedModel.taskList ]
 
         TaskUpdated result ->
             model ! []
 
-        DragDropMsg msg_ ->
+        DragDropMsg dragDropMessage ->
             let
-                ( model_, result ) =
-                    DragDrop.update msg_ model.dragDrop
+                ( dragDrop, result ) =
+                    DragDrop.update dragDropMessage model.dragDrop
 
                 ( taskList, tasks, commands ) =
                     case result of
-                        Just ( ( dragAssigneeStatus, dragTaskId, dragIndex ), ( dropAssigneeStatus, _, dropIndex ) ) ->
-                            case Dict.get dragTaskId model.tasks of
-                                Just task ->
-                                    ( moveItemInArray dragIndex dropIndex model.taskList
-                                    , updateAssigneeStatus dragTaskId dropAssigneeStatus model.tasks
-                                    , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus dropAssigneeStatus)
-                                      ]
-                                    )
+                        Just ( dragTarget, dropTarget ) ->
+                            let
+                                newAssigneeStatus =
+                                    assigneeStatusFromDropTarget dropTarget
+                            in
+                                case Dict.get dragTarget.targetId model.tasks of
+                                    Just task ->
+                                        ( dropInTaskList dragTarget dropTarget model.taskList
+                                        , updateAssigneeStatus dragTarget.targetId newAssigneeStatus model.tasks
+                                        , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus newAssigneeStatus)
+                                          ]
+                                        )
 
-                                Nothing ->
-                                    ( model.taskList, model.tasks, [] )
+                                    Nothing ->
+                                        ( model.taskList, model.tasks, [] )
 
                         Nothing ->
                             ( model.taskList, model.tasks, [] )
 
                 updatedModel =
                     { model
-                        | dragDrop = model_
+                        | dragDrop = dragDrop
                         , taskList = taskList
                         , tasks = tasks
                     }
             in
-                updatedModel ! (commands ++ [ LocalStorage.setItem taskListStorageKey (Array.toList updatedModel.taskList) (List.map Encode.string >> Encode.list) ])
+                updatedModel ! (commands ++ [ saveTaskList updatedModel.taskList ])
 
         ToggleAssigneeStatusOverlay taskId ->
             { model

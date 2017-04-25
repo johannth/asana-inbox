@@ -48,7 +48,7 @@ postJson accessTokens url body decoder =
 getTasks : String -> List AsanaAccessToken -> Cmd Msg
 getTasks apiHost accessTokens =
     Http.send LoadTasks <|
-        getJson accessTokens (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeTaskList)
+        getJson accessTokens (apiUrl apiHost "/api/tasks") (Decode.field "tasks" decodeListOfTasks)
 
 
 createTask : String -> List AsanaAccessToken -> AsanaTask -> Cmd Msg
@@ -63,14 +63,14 @@ updateTask apiHost accessTokens task mutation =
         postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/" ++ task.id) (Http.jsonBody (encodeAsanaTaskMutation mutation)) (Decode.succeed ())
 
 
-decodeTaskList : Decode.Decoder (List AsanaTask)
-decodeTaskList =
+decodeListOfTasks : Decode.Decoder (List AsanaTask)
+decodeListOfTasks =
     Decode.list decodeAsanaTask
 
 
 decodeAsanaTask : Decode.Decoder AsanaTask
 decodeAsanaTask =
-    Decode.map7 AsanaTask
+    Decode.map8 AsanaTask
         (Decode.field "id" Decode.string)
         (Decode.field "url" Decode.string)
         (Decode.field "assigneeStatus" decodeAssigneeStatus)
@@ -78,6 +78,7 @@ decodeAsanaTask =
         (Decode.field "workspace" decodeAsanaWorkspace)
         (Decode.field "name" Decode.string)
         (Decode.field "dueOn" decodeDueOn)
+        (Decode.succeed False)
 
 
 decodeAsanaProject : Decode.Decoder AsanaProject
@@ -196,3 +197,26 @@ encodeAccessTokens tokens =
 encodeAccessToken : AsanaAccessToken -> Encode.Value
 encodeAccessToken token =
     Encode.object [ ( "name", Encode.string token.name ), ( "token", Encode.string token.token ) ]
+
+
+encodeTaskList : TaskList -> Encode.Value
+encodeTaskList taskList =
+    let
+        encodeStringList =
+            List.map Encode.string >> Encode.list
+    in
+        Encode.object
+            [ ( "new", encodeStringList taskList.new )
+            , ( "today", encodeStringList taskList.today )
+            , ( "upcoming", encodeStringList taskList.upcoming )
+            , ( "later", encodeStringList taskList.later )
+            ]
+
+
+decodeTaskList : Decode.Decoder TaskList
+decodeTaskList =
+    Decode.map4 TaskList
+        (Decode.field "new" (Decode.list Decode.string))
+        (Decode.field "today" (Decode.list Decode.string))
+        (Decode.field "upcoming" (Decode.list Decode.string))
+        (Decode.field "later" (Decode.list Decode.string))

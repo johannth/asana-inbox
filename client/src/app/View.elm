@@ -15,23 +15,22 @@ import Html.Events exposing (onClick, onInput, onBlur)
 import Dict exposing (Dict)
 import Types exposing (..)
 import Html5.DragDrop as DragDrop
-import Array exposing (Array)
 import Json.Decode as Json
 import State exposing (titleInputId)
 
 
-expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker )
+expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( AsanaTask, DatePicker.DatePicker )
 expandTasks allTasks datePickers taskList =
     List.filterMap
-        (\( index, taskId ) ->
+        (\taskId ->
             case ( Dict.get taskId allTasks, Dict.get taskId datePickers ) of
                 ( Just task, Just datePicker ) ->
-                    Just ( index, task.assigneeStatus, task, datePicker )
+                    Just ( task, datePicker )
 
                 _ ->
                     Nothing
         )
-        (List.indexedMap (,) taskList)
+        taskList
 
 
 rootView : Model -> Html Msg
@@ -104,32 +103,11 @@ accessTokenView accessToken =
 
 
 tasksView : Model -> Html Msg
-tasksView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, accessTokens, taskList, tasks, workspaces, defaultWorkspace, dragDrop, buildInfo, expanded, datePickers } =
-    let
-        allTasksWithIndexAndCategory =
-            expandTasks tasks datePickers (Array.toList taskList)
-
-        dropId =
-            DragDrop.getDropId dragDrop
-
-        preferredOrder =
-            List.indexedMap (\index taskId -> ( taskId, index )) (Array.toList taskList) |> Dict.fromList
-
-        sortByPreferred =
-            List.sortBy (\( _, task, _ ) -> Maybe.withDefault 0 (Dict.get task.id preferredOrder))
-
-        sortByDate =
-            List.sortBy (\( index, task, _ ) -> ( Maybe.withDefault 0 (Maybe.map Date.toTime task.dueOn), index ))
-    in
-        div []
-            [ div [ class "workspaces" ] (List.map (workspaceView defaultWorkspace) (Dict.values workspaces))
-            , div []
-                [ taskListView today expandedAssigneeStatusOverlay True New "New" allTasksWithIndexAndCategory dropId expanded.new identity
-                , taskListView today expandedAssigneeStatusOverlay False Today "Today" allTasksWithIndexAndCategory dropId expanded.today sortByPreferred
-                , taskListView today expandedAssigneeStatusOverlay False Upcoming "Upcoming" allTasksWithIndexAndCategory dropId expanded.upcoming sortByDate
-                , taskListView today expandedAssigneeStatusOverlay False Later "Later" allTasksWithIndexAndCategory dropId expanded.later sortByDate
-                ]
-            ]
+tasksView model =
+    div []
+        [ div [ class "workspaces" ] (List.map (workspaceView model.defaultWorkspace) (Dict.values model.workspaces))
+        , taskListView model
+        ]
 
 
 workspaceView : Maybe String -> AsanaWorkspace -> Html Msg
@@ -147,48 +125,95 @@ workspaceView maybeDefaultWorkspace workspace =
         [ text workspace.name ]
 
 
-taskListView : Date -> Maybe String -> Bool -> AssigneeStatus -> String -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> Maybe TaskListIndex -> Bool -> (List ( Int, AsanaTask, DatePicker.DatePicker ) -> List ( Int, AsanaTask, DatePicker.DatePicker )) -> Html Msg
-taskListView today expandedAssigneeStatusOverlay hideOnEmpty assigneeStatus title allTasks maybeDropId expanded sorter =
-    let
-        tasksWithThisStatus =
-            List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) allTasks
-                |> List.map (\( index, assigneeStatus, task, datePicker ) -> ( index, task, datePicker ))
-                |> sorter
+taskListView : Model -> Html Msg
+taskListView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
+    case taskList of
+        Just taskList ->
+            let
+                currentDropTarget =
+                    DragDrop.getDropId dragDrop
 
+                newTasks =
+                    expandTasks tasks datePickers taskList.new
+
+                todayTasks =
+                    expandTasks tasks datePickers taskList.today
+
+                upcomingTasks =
+                    expandTasks tasks datePickers taskList.upcoming
+
+                laterTasks =
+                    expandTasks tasks datePickers taskList.later
+            in
+                div []
+                    [ taskListSegmentView ({ assigneeStatus = New, title = "New", hideOnEmpty = True }) today expandedAssigneeStatusOverlay newTasks currentDropTarget expanded.new
+                    , taskListSegmentView ({ assigneeStatus = Today, title = "Today", hideOnEmpty = False }) today expandedAssigneeStatusOverlay todayTasks currentDropTarget expanded.today
+                    , taskListSegmentView ({ assigneeStatus = Upcoming, title = "Upcoming", hideOnEmpty = False }) today expandedAssigneeStatusOverlay upcomingTasks currentDropTarget expanded.upcoming
+                    , taskListSegmentView ({ assigneeStatus = Later, title = "Later", hideOnEmpty = False }) today expandedAssigneeStatusOverlay laterTasks currentDropTarget expanded.later
+                    ]
+
+        Nothing ->
+            div [] [ text "Loading..." ]
+
+
+filterTasksByStatus : AssigneeStatus -> List ( Int, AssigneeStatus, AsanaTask, DatePicker.DatePicker ) -> List ( Int, AsanaTask, DatePicker.DatePicker )
+filterTasksByStatus assigneeStatus tasks =
+    List.filter (\( _, taskAssigneeStatus, _, _ ) -> taskAssigneeStatus == assigneeStatus) tasks
+        |> List.map (\( index, _, task, datePicker ) -> ( index, task, datePicker ))
+
+
+type alias TaskListSegmentConfig =
+    { assigneeStatus : AssigneeStatus
+    , title : String
+    , hideOnEmpty : Bool
+    }
+
+
+taskListSegmentView : TaskListSegmentConfig -> Date -> Maybe String -> List ( AsanaTask, DatePicker.DatePicker ) -> Maybe DropTarget -> Bool -> Html Msg
+taskListSegmentView config today expandedAssigneeStatusOverlay tasks currentDropTarget expanded =
+    let
         hasExpandedAssigneeStatusOverlay =
             \task -> Just task.id == expandedAssigneeStatusOverlay
 
         taskViews =
-            (List.map (\( index, task, datePicker ) -> taskView today (hasExpandedAssigneeStatusOverlay task) datePicker maybeDropId ( assigneeStatus, task.id, index ) task) tasksWithThisStatus)
+            if expanded then
+                List.filter (\( task, _ ) -> not task.completed) tasks
+                    |> List.map
+                        (\( task, datePicker ) ->
+                            taskView today (hasExpandedAssigneeStatusOverlay task) datePicker currentDropTarget task
+                        )
+            else
+                []
 
         dropView =
-            fakeDropView maybeDropId ( assigneeStatus, "", ((List.length tasksWithThisStatus) + 1) )
+            fakeDropView currentDropTarget (End config.assigneeStatus)
     in
-        if hideOnEmpty && List.length tasksWithThisStatus == 0 then
+        if config.hideOnEmpty && List.length tasks == 0 then
             text ""
         else
             div []
-                [ h2
-                    [ class "tasksHeader", onClick (ToggleExpanded assigneeStatus) ]
-                    [ div
-                        [ class
-                            ("tasksHeaderTriangleIcon"
-                                ++ if not expanded then
-                                    " closed"
-                                   else
-                                    ""
-                            )
-                        ]
-                        [ triangle ]
-                    , text title
-                    ]
+                [ taskListHeaderView config.assigneeStatus config.title expanded
                 , ul [ class "tasks" ]
-                    (if expanded then
-                        taskViews ++ [ dropView ]
-                     else
-                        [ dropView ]
-                    )
+                    (taskViews ++ [ dropView ])
                 ]
+
+
+taskListHeaderView : AssigneeStatus -> String -> Bool -> Html Msg
+taskListHeaderView assigneeStatus title expanded =
+    h2
+        [ class "tasksHeader", onClick (ToggleExpanded assigneeStatus) ]
+        [ div
+            [ class
+                ("tasksHeaderTriangleIcon"
+                    ++ if not expanded then
+                        " closed"
+                       else
+                        ""
+                )
+            ]
+            [ triangle ]
+        , text title
+        ]
 
 
 triangle : Html Msg
@@ -198,12 +223,12 @@ triangle =
         ]
 
 
-classNameIfOnTop : Maybe TaskListIndex -> TaskListIndex -> String
-classNameIfOnTop maybeDropId ( category, _, index ) =
-    case maybeDropId of
-        Just ( dropCategory, _, dropIndex ) ->
-            if dropCategory == category && dropIndex == index then
-                " onTop"
+classNameIfOnTop : Maybe DropTarget -> DropTarget -> String
+classNameIfOnTop maybeCurrentDropTarget dropTarget =
+    case maybeCurrentDropTarget of
+        Just currentDropTarget ->
+            if equalDropTarget currentDropTarget dropTarget then
+                "onTop"
             else
                 ""
 
@@ -211,17 +236,20 @@ classNameIfOnTop maybeDropId ( category, _, index ) =
             ""
 
 
-taskView : Date -> Bool -> DatePicker.DatePicker -> Maybe TaskListIndex -> TaskListIndex -> AsanaTask -> Html Msg
-taskView today assigneeStatusViewIsExpanded datePicker maybeDropId index task =
+taskView : Date -> Bool -> DatePicker.DatePicker -> Maybe DropTarget -> AsanaTask -> Html Msg
+taskView today assigneeStatusViewIsExpanded datePicker currentDropTarget task =
     let
+        dropTarget =
+            Before task.assigneeStatus task.id
+
         classNames =
-            "task" ++ (classNameIfOnTop maybeDropId index)
+            "task " ++ (classNameIfOnTop currentDropTarget dropTarget)
 
         isHeading =
             String.endsWith ":" task.name
     in
         li
-            ([ class classNames ] ++ DragDrop.draggable DragDropMsg index ++ DragDrop.droppable DragDropMsg index)
+            ([ class classNames ] ++ DragDrop.draggable DragDropMsg (DragTarget task.assigneeStatus task.id) ++ DragDrop.droppable DragDropMsg dropTarget)
             (if isHeading then
                 [ div [ class "taskDragHandle" ] [ dragHandle ]
                 , div [ class "taskTitleAsHeader" ] [ h3 [] [ text task.name ] ]
@@ -232,7 +260,7 @@ taskView today assigneeStatusViewIsExpanded datePicker maybeDropId index task =
                 , div [ class "taskWorkspaceAndTitle" ]
                     [ div [ class "taskWorkspace" ]
                         [ text task.workspace.name ]
-                    , taskTitleView index task.id task.name
+                    , taskTitleView task.id task.assigneeStatus task.name
                     ]
                 ]
                     ++ (if task.url /= "" then
@@ -267,9 +295,9 @@ checkMark =
         ]
 
 
-taskTitleView : TaskListIndex -> String -> String -> Html Msg
-taskTitleView index taskId title =
-    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onBlur (StopEditTaskName taskId), onEnterPress (AddNewTask index), value title ] []
+taskTitleView : String -> AssigneeStatus -> String -> Html Msg
+taskTitleView taskId assigneeStatus title =
+    input [ class "taskTitle", id (titleInputId taskId), onInput (EditTaskName taskId), onBlur (StopEditTaskName taskId), onEnterPress (AddNewTask assigneeStatus taskId), value title ] []
 
 
 removeTimePart : Date -> Date
@@ -358,14 +386,14 @@ assigneeStatusView expanded task =
         ]
 
 
-fakeDropView : Maybe TaskListIndex -> TaskListIndex -> Html Msg
-fakeDropView maybeDropId index =
+fakeDropView : Maybe DropTarget -> DropTarget -> Html Msg
+fakeDropView currentDropTarget dropTarget =
     let
         classNames =
-            "fakeDropView" ++ (classNameIfOnTop maybeDropId index)
+            "fakeDropView " ++ (classNameIfOnTop currentDropTarget dropTarget)
     in
         li
-            ([ class classNames ] ++ DragDrop.droppable DragDropMsg index)
+            ([ class classNames ] ++ DragDrop.droppable DragDropMsg dropTarget)
             []
 
 
