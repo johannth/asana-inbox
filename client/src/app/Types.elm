@@ -6,7 +6,6 @@ import Date exposing (Date)
 import Dom
 import Navigation
 import Html5.DragDrop as DragDrop
-import Array exposing (Array)
 import DatePicker
 import LocalStorage
 
@@ -62,8 +61,53 @@ type alias ExpandedState =
     }
 
 
-type alias TaskListIndex =
-    ( AssigneeStatus, String, Int )
+type alias DragTarget =
+    { assigneeStatus : AssigneeStatus
+    , targetId : String
+    }
+
+
+type DropTarget
+    = Before AssigneeStatus String
+    | After AssigneeStatus String
+    | End AssigneeStatus
+
+
+equalDropTarget : DropTarget -> DropTarget -> Bool
+equalDropTarget a b =
+    case ( a, b ) of
+        ( Before assigneeStatusA targetIdA, Before assigneeStatusB targetIdB ) ->
+            assigneeStatusA == assigneeStatusB && targetIdA == targetIdB
+
+        ( After assigneeStatusA targetIdA, After assigneeStatusB targetIdB ) ->
+            assigneeStatusA == assigneeStatusB && targetIdA == targetIdB
+
+        ( End assigneeStatusA, End assigneeStatusB ) ->
+            assigneeStatusA == assigneeStatusB
+
+        _ ->
+            False
+
+
+assigneeStatusFromDropTarget : DropTarget -> AssigneeStatus
+assigneeStatusFromDropTarget dropTarget =
+    case dropTarget of
+        Before assigneeStatus _ ->
+            assigneeStatus
+
+        After assigneeStatus _ ->
+            assigneeStatus
+
+        End assigneeStatus ->
+            assigneeStatus
+
+
+type alias TaskList =
+    { new : List String
+    , today : List String
+    , upcoming : List String
+    , later : List String
+    }
 
 
 type alias Model =
@@ -74,11 +118,11 @@ type alias Model =
     , newAccessTokenToken : String
     , accessTokens : List AsanaAccessToken
     , tasks : Dict String AsanaTask
-    , taskList : Array String
+    , taskList : Maybe TaskList
     , workspaces : Dict String AsanaWorkspace
     , defaultWorkspace : Maybe String
     , buildInfo : BuildInfo
-    , dragDrop : DragDrop.Model TaskListIndex TaskListIndex
+    , dragDrop : DragDrop.Model DragTarget DropTarget
     , expanded : ExpandedState
     , datePickers : Dict String DatePicker.DatePicker
     , expandedAssigneeStatusOverlay : Maybe String
@@ -88,7 +132,7 @@ type alias Model =
 type Msg
     = Void
     | UrlChange Navigation.Location
-    | DragDropMsg (DragDrop.Msg TaskListIndex TaskListIndex)
+    | DragDropMsg (DragDrop.Msg DragTarget DropTarget)
     | LoadTasks (Result Http.Error (List AsanaTask))
     | TaskCreated String (Result Http.Error AsanaTask)
     | TaskUpdated (Result Http.Error ())
@@ -96,7 +140,7 @@ type Msg
     | CompleteTask String
     | EditTaskName String String
     | StopEditTaskName String
-    | AddNewTask TaskListIndex
+    | AddNewTask AssigneeStatus String
     | FocusResult (Result Dom.Error ())
     | RemoveAccessToken AsanaAccessToken
     | ToggleAccessTokenForm
