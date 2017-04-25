@@ -70,7 +70,7 @@ decodeListOfTasks =
 
 decodeAsanaTask : Decode.Decoder AsanaTask
 decodeAsanaTask =
-    Decode.map7 AsanaTask
+    Decode.map8 AsanaTask
         (Decode.field "id" Decode.string)
         (Decode.field "url" Decode.string)
         (Decode.field "assigneeStatus" decodeAssigneeStatus)
@@ -78,6 +78,7 @@ decodeAsanaTask =
         (Decode.field "workspace" decodeAsanaWorkspace)
         (Decode.field "name" Decode.string)
         (Decode.field "dueOn" decodeDueOn)
+        (Decode.succeed False)
 
 
 decodeAsanaProject : Decode.Decoder AsanaProject

@@ -36,6 +36,7 @@ type alias AsanaTask =
     , workspace : AsanaWorkspace
     , name : String
     , dueOn : Maybe Date
+    , completed : Bool
     }
 
 

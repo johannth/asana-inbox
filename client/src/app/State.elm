@@ -351,8 +351,11 @@ update msg model =
         CompleteTask completedTaskId ->
             case Dict.get completedTaskId model.tasks of
                 Just task ->
-                    -- TODO: Complete task
-                    model ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
+                    let
+                        updatedTask =
+                            { task | completed = True }
+                    in
+                        { model | tasks = Dict.insert updatedTask.id updatedTask model.tasks } ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
 
                 Nothing ->
                     model ! []
@@ -392,7 +395,7 @@ update msg model =
                             "local-" ++ toString (Dict.size model.tasks)
 
                         task =
-                            AsanaTask localId "" assigneeStatus [] workspace "" Nothing
+                            AsanaTask localId "" assigneeStatus [] workspace "" Nothing False
 
                         ( datePicker, datePickerFx ) =
                             DatePicker.init defaultSettings

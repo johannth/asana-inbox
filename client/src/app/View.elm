@@ -177,7 +177,11 @@ taskListSegmentView config today expandedAssigneeStatusOverlay tasks currentDrop
 
         taskViews =
             if expanded then
-                (List.map (\( task, datePicker ) -> taskView today (hasExpandedAssigneeStatusOverlay task) datePicker currentDropTarget task) tasks)
+                List.filter (\( task, _ ) -> not task.completed) tasks
+                    |> List.map
+                        (\( task, datePicker ) ->
+                            taskView today (hasExpandedAssigneeStatusOverlay task) datePicker currentDropTarget task
+                        )
             else
                 []
 
@@ -289,10 +293,6 @@ checkMark =
     Svg.svg [ Svg.Attributes.viewBox "0 0 32 32" ]
         [ Svg.polygon [ Svg.Attributes.points "27.672,4.786 10.901,21.557 4.328,14.984 1.5,17.812 10.901,27.214 30.5,7.615 " ] []
         ]
-
-
-
--- TODO: Possibly wrong
 
 
 taskTitleView : String -> AssigneeStatus -> String -> Html Msg
