@@ -27,7 +27,7 @@ defaultWorkspaceStorageKey =
 
 taskListStorageKey : String
 taskListStorageKey =
-    "todaySortOrder"
+    "taskList"
 
 
 titleInputId : String -> String
