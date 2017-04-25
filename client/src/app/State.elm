@@ -397,7 +397,6 @@ update msg model =
                         ( datePicker, datePickerFx ) =
                             DatePicker.init defaultSettings
 
-                        -- TODO
                         taskList =
                             dropInTaskList (DragTarget task.assigneeStatus task.id) (After assigneeStatus taskId) model.taskList
                     in
@@ -449,18 +448,21 @@ update msg model =
                 tasks =
                     Dict.insert task.id task model.tasks
 
-                -- TODO: Replace localTaskId in task list
                 taskList =
-                    model.taskList
+                    Maybe.map
+                        (updateTaskList
+                            (List.map
+                                (\taskId ->
+                                    if taskId == localTaskId then
+                                        task.id
+                                    else
+                                        taskId
+                                )
+                            )
+                            task.assigneeStatus
+                        )
+                        model.taskList
 
-                -- List.map
-                --     (\taskId ->
-                --         if taskId == localTaskId then
-                --             task.id
-                --         else
-                --             taskId
-                --     )
-                --     model.taskList
                 datePickers =
                     case Dict.get localTaskId model.datePickers of
                         Just datePicker ->
@@ -468,13 +470,15 @@ update msg model =
 
                         Nothing ->
                             model.datePickers
+
+                updatedModel =
+                    { model
+                        | tasks = tasks
+                        , taskList = taskList
+                        , datePickers = datePickers
+                    }
             in
-                { model
-                    | tasks = tasks
-                    , taskList = taskList
-                    , datePickers = datePickers
-                }
-                    ! []
+                updatedModel ! [ saveTaskList updatedModel.taskList ]
 
         TaskUpdated result ->
             model ! []
