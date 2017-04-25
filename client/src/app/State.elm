@@ -123,44 +123,18 @@ saveApiTokens accessTokens =
     LocalStorage.setItem accessTokensStorageKey accessTokens Api.encodeAccessTokens
 
 
-dropInTaskList : DragTarget -> DropTarget -> Maybe TaskList -> Maybe TaskList
-dropInTaskList dragTarget dropTarget maybeTaskList =
+moveTaskInTaskList : DragTarget -> DropTarget -> Maybe TaskList -> Maybe TaskList
+moveTaskInTaskList dragTarget dropTarget maybeTaskList =
     case maybeTaskList of
         Just taskList ->
-            Just (dropInTaskList_ dragTarget dropTarget taskList)
+            Just (moveTaskInTaskList_ dragTarget dropTarget taskList)
 
         Nothing ->
             Nothing
 
 
-updateTaskList : (List String -> List String) -> AssigneeStatus -> TaskList -> TaskList
-updateTaskList updater assigneeStatus taskList =
-    case assigneeStatus of
-        New ->
-            { taskList | new = updater taskList.new }
-
-        Today ->
-            { taskList | today = updater taskList.today }
-
-        Upcoming ->
-            { taskList | upcoming = updater taskList.upcoming }
-
-        Later ->
-            { taskList | later = updater taskList.later }
-
-
-removeIdFromTaskList : AssigneeStatus -> String -> TaskList -> TaskList
-removeIdFromTaskList assigneeStatus taskIdToRemove taskList =
-    updateTaskList (List.filter (\taskId -> taskId /= taskIdToRemove)) assigneeStatus taskList
-
-
-insertIdIntoTaskList : AssigneeStatus -> String -> (String -> List String -> List String) -> TaskList -> TaskList
-insertIdIntoTaskList assigneeStatus taskId inserter taskList =
-    updateTaskList (inserter taskId) assigneeStatus taskList
-
-
-dropInTaskList_ : DragTarget -> DropTarget -> TaskList -> TaskList
-dropInTaskList_ dragTarget dropTarget taskList =
+moveTaskInTaskList_ : DragTarget -> DropTarget -> TaskList -> TaskList
+moveTaskInTaskList_ dragTarget dropTarget taskList =
     let
         ( dropAssigneeStatus, inserter ) =
             case dropTarget of
@@ -197,6 +171,32 @@ dropInTaskList_ dragTarget dropTarget taskList =
     in
         removeIdFromTaskList dragTarget.assigneeStatus dragTarget.targetId taskList
             |> insertIdIntoTaskList dropAssigneeStatus dragTarget.targetId inserter
+
+
+removeIdFromTaskList : AssigneeStatus -> String -> TaskList -> TaskList
+removeIdFromTaskList assigneeStatus taskIdToRemove taskList =
+    updateTaskList (List.filter (\taskId -> taskId /= taskIdToRemove)) assigneeStatus taskList
+
+
+insertIdIntoTaskList : AssigneeStatus -> String -> (String -> List String -> List String) -> TaskList -> TaskList
+insertIdIntoTaskList assigneeStatus taskId inserter taskList =
+    updateTaskList (inserter taskId) assigneeStatus taskList
+
+
+updateTaskList : (List String -> List String) -> AssigneeStatus -> TaskList -> TaskList
+updateTaskList updater assigneeStatus taskList =
+    case assigneeStatus of
+        New ->
+            { taskList | new = updater taskList.new }
+
+        Today ->
+            { taskList | today = updater taskList.today }
+
+        Upcoming ->
+            { taskList | upcoming = updater taskList.upcoming }
+
+        Later ->
+            { taskList | later = updater taskList.later }
 
 
 saveTaskList : Maybe TaskList -> Cmd Msg
@@ -288,6 +288,9 @@ update msg model =
 
         LoadTasks (Ok newTasks) ->
             let
+                tasks =
+                    Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
+
                 new =
                     Dict.values tasks
                         |> List.filter (\task -> task.assigneeStatus == New)
@@ -297,15 +300,13 @@ update msg model =
                     Maybe.withDefault [] (Maybe.map .today model.taskList)
 
                 currentTodayTasksLookUp =
-                    Set.fromList currentTodayTasks
-
-                newTodayTasks =
-                    Dict.values tasks
-                        |> List.filter (\task -> task.assigneeStatus == Today && not (Set.member task.id currentTodayTasksLookUp))
-                        |> List.map .id
+                    Dict.fromList (List.map2 (,) currentTodayTasks (List.range 0 (List.length currentTodayTasks)))
 
                 today =
-                    newTodayTasks ++ currentTodayTasks
+                    Dict.values tasks
+                        |> List.filter (\task -> task.assigneeStatus == Today)
+                        |> List.sortBy (.id >> ((flip Dict.get) currentTodayTasksLookUp) >> Maybe.withDefault -1)
+                        |> List.map .id
 
                 sortByDate =
                     List.sortBy (.dueOn >> Maybe.map Date.toTime >> Maybe.withDefault 0)
@@ -324,9 +325,6 @@ update msg model =
 
                 taskList =
                     TaskList new today upcoming later
-
-                tasks =
-                    Dict.fromList (List.map (\task -> ( task.id, task )) newTasks)
 
                 workspaces =
                     Dict.fromList (List.map (\task -> ( task.workspace.id, task.workspace )) (Dict.values tasks))
@@ -401,7 +399,7 @@ update msg model =
                             DatePicker.init defaultSettings
 
                         taskList =
-                            dropInTaskList (DragTarget task.assigneeStatus task.id) (After assigneeStatus taskId) model.taskList
+                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (After assigneeStatus taskId) model.taskList
                     in
                         { model
                             | tasks = Dict.insert task.id task model.tasks
@@ -500,7 +498,7 @@ update msg model =
                             in
                                 case Dict.get dragTarget.targetId model.tasks of
                                     Just task ->
-                                        ( dropInTaskList dragTarget dropTarget model.taskList
+                                        ( moveTaskInTaskList dragTarget dropTarget model.taskList
                                         , updateAssigneeStatus dragTarget.targetId newAssigneeStatus model.tasks
                                         , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus newAssigneeStatus)
                                           ]
@@ -538,8 +536,19 @@ update msg model =
                     let
                         updatedTask =
                             { task | assigneeStatus = assigneeStatus }
+
+                        taskList =
+                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (End assigneeStatus) model.taskList
+
+                        updatedModel =
+                            { model
+                                | tasks = Dict.insert taskId updatedTask model.tasks
+                                , taskList = taskList
+                                , expandedAssigneeStatusOverlay = Nothing
+                            }
                     in
-                        { model | tasks = Dict.insert taskId updatedTask model.tasks, expandedAssigneeStatusOverlay = Nothing } ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus assigneeStatus) ]
+                        updatedModel
+                            ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus assigneeStatus), saveTaskList updatedModel.taskList ]
 
                 Nothing ->
                     model ! []
