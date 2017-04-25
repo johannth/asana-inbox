@@ -12,7 +12,6 @@ import LocalStorage
 import Date
 import Json.Encode as Encode
 import Json.Decode as Decode
-import Set
 
 
 accessTokensStorageKey : String
@@ -136,41 +135,56 @@ moveTaskInTaskList dragTarget dropTarget maybeTaskList =
 moveTaskInTaskList_ : DragTarget -> DropTarget -> TaskList -> TaskList
 moveTaskInTaskList_ dragTarget dropTarget taskList =
     let
-        ( dropAssigneeStatus, inserter ) =
+        ( dropAssigneeStatus, maybeDropTaskId, inserter ) =
             case dropTarget of
                 Before assigneeStatus dropTaskId ->
                     ( assigneeStatus
+                    , Just dropTaskId
                     , (\taskIdToInsert taskIds ->
-                        List.concatMap
-                            (\taskId ->
-                                if taskId == dropTaskId then
-                                    [ taskIdToInsert, taskId ]
-                                else
-                                    [ taskId ]
-                            )
-                            taskIds
+                        case taskIds of
+                            [] ->
+                                [ taskIdToInsert ]
+
+                            _ ->
+                                List.concatMap
+                                    (\taskId ->
+                                        if taskId == dropTaskId then
+                                            [ taskIdToInsert, taskId ]
+                                        else
+                                            [ taskId ]
+                                    )
+                                    taskIds
                       )
                     )
 
                 After assigneeStatus dropTaskId ->
                     ( assigneeStatus
+                    , Just dropTaskId
                     , (\taskIdToInsert taskIds ->
-                        List.concatMap
-                            (\taskId ->
-                                if taskId == dropTaskId then
-                                    [ taskId, taskIdToInsert ]
-                                else
-                                    [ taskId ]
-                            )
-                            taskIds
+                        case taskIds of
+                            [] ->
+                                [ taskIdToInsert ]
+
+                            _ ->
+                                List.concatMap
+                                    (\taskId ->
+                                        if taskId == dropTaskId then
+                                            [ taskId, taskIdToInsert ]
+                                        else
+                                            [ taskId ]
+                                    )
+                                    taskIds
                       )
                     )
 
                 End assigneeStatus ->
-                    ( assigneeStatus, (\taskIdToInsert taskIds -> taskIds ++ [ taskIdToInsert ]) )
+                    ( assigneeStatus, Nothing, (\taskIdToInsert taskIds -> taskIds ++ [ taskIdToInsert ]) )
     in
-        removeIdFromTaskList dragTarget.assigneeStatus dragTarget.targetId taskList
-            |> insertIdIntoTaskList dropAssigneeStatus dragTarget.targetId inserter
+        if Just dragTarget.targetId == maybeDropTaskId then
+            taskList
+        else
+            removeIdFromTaskList dragTarget.assigneeStatus dragTarget.targetId taskList
+                |> insertIdIntoTaskList dropAssigneeStatus dragTarget.targetId inserter
 
 
 removeIdFromTaskList : AssigneeStatus -> String -> TaskList -> TaskList
