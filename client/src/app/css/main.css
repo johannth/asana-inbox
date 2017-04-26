@@ -230,8 +230,8 @@ body {
 }
 
 .taskUrl {
-  visibility: hidden;
-  margin: auto;
+  display: none;
+  margin: auto 0px auto 10px;
   text-decoration: none;
   font-size: 14px;
   color: black;
@@ -242,7 +242,7 @@ body {
 }
 
 .task:hover .taskUrl {
-  visibility: visible;
+  display: block;
 }
 
 .datePickerContainer {
