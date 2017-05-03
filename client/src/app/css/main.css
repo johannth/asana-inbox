@@ -219,8 +219,12 @@ body {
   display: flex;
 }
 
-.taskTitleAsHeader h3 {
+.taskTitleAsHeader h3{
   margin: auto;
+
+}
+
+.taskTitleAsHeader .taskTitle {
   font-size: 18px;
   font-weight: bold;
 }

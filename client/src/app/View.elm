@@ -252,7 +252,7 @@ taskView today assigneeStatusViewIsExpanded datePicker currentDropTarget task =
             ([ class classNames ] ++ DragDrop.draggable DragDropMsg (DragTarget task.assigneeStatus task.id) ++ DragDrop.droppable DragDropMsg dropTarget)
             (if isHeading then
                 [ div [ class "taskDragHandle" ] [ dragHandle ]
-                , div [ class "taskTitleAsHeader" ] [ h3 [] [ text task.name ] ]
+                , div [ class "taskTitleAsHeader" ] [ h3 [] [ taskTitleView task.id task.assigneeStatus task.name ] ]
                 ]
              else
                 [ div [ class "taskDragHandle" ] [ dragHandle ]
