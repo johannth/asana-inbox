@@ -1,13 +1,13 @@
 module Types exposing (..)
 
-import Http
-import Dict exposing (Dict)
 import Date exposing (Date)
-import Dom
-import Navigation
-import Html5.DragDrop as DragDrop
 import DatePicker
+import Dict exposing (Dict)
+import Dom
+import Html5.DragDrop as DragDrop
+import Http
 import LocalStorage
+import Navigation
 
 
 type alias AsanaAccessToken =
@@ -114,6 +114,7 @@ type alias TaskList =
 type alias Model =
     { apiHost : String
     , today : Date
+    , inPlanningMode : Bool
     , accessTokenFormExpanded : Bool
     , newAccessTokenName : String
     , newAccessTokenToken : String
@@ -153,6 +154,7 @@ type Msg
     | ToggleAssigneeStatusOverlay String
     | SetAssigneeStatus String AssigneeStatus
     | SetDefaultWorkspace String
+    | TogglePlanningMode
 
 
 

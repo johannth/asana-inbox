@@ -1,22 +1,24 @@
 module View exposing (rootView)
 
-import Html exposing (..)
-import Svg
-import Svg.Attributes
 import Date exposing (Date)
+import Date.Extra.Compare as Compare
 import Date.Extra.Config.Config_en_us exposing (config)
-import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
-import Date.Extra.Compare
-import Date.Extra.Create
+import Date.Extra.Create exposing (dateFromFields)
 import Date.Extra.Duration
+import Date.Extra.Field as Field exposing (fieldToDate)
+import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
+import Date.Extra.Utils exposing (dayList)
 import DatePicker
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput, onBlur)
 import Dict exposing (Dict)
-import Types exposing (..)
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (onBlur, onClick, onInput)
 import Html5.DragDrop as DragDrop
 import Json.Decode as Json
 import State exposing (titleInputId)
+import Svg
+import Svg.Attributes
+import Types exposing (..)
 
 
 expandTasks : Dict String AsanaTask -> Dict String DatePicker.DatePicker -> List String -> List ( AsanaTask, DatePicker.DatePicker )
@@ -42,23 +44,22 @@ rootView model =
         isLoading =
             hasNoTasks && List.length model.accessTokens /= 0
     in
-        div [ id "content" ]
-            [ h1 [ id "title" ] [ text "Asana Inbox" ]
-            , div [ id "body" ]
-                [ tokensView model.accessTokenFormExpanded model.accessTokens
-                , (if hasNoTasks then
-                    if isLoading then
-                        div [] [ text "Loading.." ]
-                    else
-                        div [] []
-                   else
-                    tasksView model
-                  )
-                ]
-            , div [ id "footer" ]
-                [ buildInfoView model.buildInfo
-                ]
+    div [ id "content" ]
+        [ h1 [ id "title" ] [ text "Asana Inbox" ]
+        , div [ id "body" ]
+            [ tokensView model.accessTokenFormExpanded model.accessTokens
+            , if hasNoTasks then
+                if isLoading then
+                    div [] [ text "Loading.." ]
+                else
+                    div [] []
+              else
+                tasksView model
             ]
+        , div [ id "footer" ]
+            [ buildInfoView model.buildInfo
+            ]
+        ]
 
 
 tokensView : Bool -> List AsanaAccessToken -> Html Msg
@@ -67,10 +68,10 @@ tokensView accessTokenFormExpanded accessTokens =
         expanded =
             accessTokenFormExpanded || List.length accessTokens == 0
     in
-        div [ class "accessTokens" ]
-            ((List.map accessTokenView accessTokens)
-                ++ [ addNewAccessTokenView expanded ]
-            )
+    div [ class "accessTokens" ]
+        (List.map accessTokenView accessTokens
+            ++ [ addNewAccessTokenView expanded ]
+        )
 
 
 addNewAccessTokenView : Bool -> Html Msg
@@ -106,7 +107,27 @@ tasksView : Model -> Html Msg
 tasksView model =
     div []
         [ div [ class "workspaces" ] (List.map (workspaceView model.defaultWorkspace) (Dict.values model.workspaces))
-        , taskListView model
+        , togglePlanningModeButton model.inPlanningMode
+        , if model.inPlanningMode then
+            planningModeView model
+          else
+            taskListView model
+        ]
+
+
+togglePlanningModeButton : Bool -> Html Msg
+togglePlanningModeButton inPlanningMode =
+    label []
+        [ input [ type_ "checkbox", onClick TogglePlanningMode ]
+            []
+        , span []
+            [ text
+                (if inPlanningMode then
+                    "Save"
+                 else
+                    "Plan"
+                )
+            ]
         ]
 
 
@@ -116,17 +137,98 @@ workspaceView maybeDefaultWorkspace workspace =
         [ onClick (SetDefaultWorkspace workspace.id)
         , class
             ("workspace"
-                ++ if maybeDefaultWorkspace == Just workspace.id then
-                    " default"
-                   else
-                    ""
+                ++ (if maybeDefaultWorkspace == Just workspace.id then
+                        " default"
+                    else
+                        ""
+                   )
             )
         ]
         [ text workspace.name ]
 
 
+removeTimeFromDate : Date -> Date
+removeTimeFromDate date =
+    dateFromFields (Date.year date) (Date.month date) (Date.day date) 0 0 0 0
+
+
+compareIsIgnoringTime : Compare.Compare2 -> Date -> Date -> Bool
+compareIsIgnoringTime comparison date1 date2 =
+    let
+        normalizedDate1 =
+            removeTimeFromDate date1
+
+        normalizedDate2 =
+            removeTimeFromDate date2
+    in
+    Compare.is comparison normalizedDate1 normalizedDate2
+
+
+planningModeView : Model -> Html Msg
+planningModeView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
+    case ( taskList, fieldToDate (Field.DayOfWeek ( Date.Mon, Date.Mon )) today ) of
+        ( Just taskList, Just monday ) ->
+            let
+                currentDropTarget =
+                    DragDrop.getDropId dragDrop
+
+                days =
+                    dayList 7 monday
+
+                nextSunday =
+                    Maybe.withDefault monday (List.head (List.reverse days))
+
+                sectionDays =
+                    [ Nothing ] ++ List.map Just days
+
+                allPossibleTriageTasks =
+                    Dict.values tasks
+                        |> List.filter (\task -> compareIsIgnoringTime Compare.SameOrBefore (Maybe.withDefault nextSunday task.dueOn) nextSunday)
+                        |> List.filter (\task -> not (String.endsWith ":" task.name))
+
+                sections =
+                    List.map
+                        (\day ->
+                            case day of
+                                Just day ->
+                                    let
+                                        taskIdsForDay =
+                                            List.filter (\task -> Maybe.withDefault False (Maybe.map (compareIsIgnoringTime Compare.Same day) task.dueOn)) allPossibleTriageTasks |> List.map .id
+
+                                        tasksForSection =
+                                            expandTasks tasks datePickers taskIdsForDay
+
+                                        title =
+                                            format config "%A" day
+
+                                        assigneeStatus =
+                                            if compareIsIgnoringTime Compare.Same day nextSunday then
+                                                Later
+                                            else
+                                                Upcoming
+                                    in
+                                    taskListSegmentView { assigneeStatus = assigneeStatus, title = title, hideOnEmpty = False } today expandedAssigneeStatusOverlay tasksForSection currentDropTarget True
+
+                                Nothing ->
+                                    let
+                                        taskIdsForDay =
+                                            List.filter (\task -> Maybe.withDefault True (Maybe.map (compareIsIgnoringTime Compare.After monday) task.dueOn)) allPossibleTriageTasks |> List.map .id
+
+                                        tasksForSection =
+                                            expandTasks tasks datePickers taskIdsForDay
+                                    in
+                                    taskListSegmentView { assigneeStatus = Today, title = "Triage", hideOnEmpty = False } today expandedAssigneeStatusOverlay tasksForSection currentDropTarget True
+                        )
+                        sectionDays
+            in
+            div [] sections
+
+        _ ->
+            div [] [ text "Loading..." ]
+
+
 taskListView : Model -> Html Msg
-taskListView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
+taskListView { today, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
     case taskList of
         Just taskList ->
             let
@@ -145,12 +247,12 @@ taskListView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, ta
                 laterTasks =
                     expandTasks tasks datePickers taskList.later
             in
-                div []
-                    [ taskListSegmentView ({ assigneeStatus = New, title = "New", hideOnEmpty = True }) today expandedAssigneeStatusOverlay newTasks currentDropTarget expanded.new
-                    , taskListSegmentView ({ assigneeStatus = Today, title = "Today", hideOnEmpty = False }) today expandedAssigneeStatusOverlay todayTasks currentDropTarget expanded.today
-                    , taskListSegmentView ({ assigneeStatus = Upcoming, title = "Upcoming", hideOnEmpty = False }) today expandedAssigneeStatusOverlay upcomingTasks currentDropTarget expanded.upcoming
-                    , taskListSegmentView ({ assigneeStatus = Later, title = "Later", hideOnEmpty = False }) today expandedAssigneeStatusOverlay laterTasks currentDropTarget expanded.later
-                    ]
+            div []
+                [ taskListSegmentView { assigneeStatus = New, title = "New", hideOnEmpty = True } today expandedAssigneeStatusOverlay newTasks currentDropTarget expanded.new
+                , taskListSegmentView { assigneeStatus = Today, title = "Today", hideOnEmpty = False } today expandedAssigneeStatusOverlay todayTasks currentDropTarget expanded.today
+                , taskListSegmentView { assigneeStatus = Upcoming, title = "Upcoming", hideOnEmpty = False } today expandedAssigneeStatusOverlay upcomingTasks currentDropTarget expanded.upcoming
+                , taskListSegmentView { assigneeStatus = Later, title = "Later", hideOnEmpty = False } today expandedAssigneeStatusOverlay laterTasks currentDropTarget expanded.later
+                ]
 
         Nothing ->
             div [] [ text "Loading..." ]
@@ -188,14 +290,14 @@ taskListSegmentView config today expandedAssigneeStatusOverlay tasks currentDrop
         dropView =
             fakeDropView currentDropTarget (End config.assigneeStatus)
     in
-        if config.hideOnEmpty && List.length tasks == 0 then
-            text ""
-        else
-            div []
-                [ taskListHeaderView config.assigneeStatus config.title expanded
-                , ul [ class "tasks" ]
-                    (taskViews ++ [ dropView ])
-                ]
+    if config.hideOnEmpty && List.length tasks == 0 then
+        text ""
+    else
+        div []
+            [ taskListHeaderView config.assigneeStatus config.title expanded
+            , ul [ class "tasks" ]
+                (taskViews ++ [ dropView ])
+            ]
 
 
 taskListHeaderView : AssigneeStatus -> String -> Bool -> Html Msg
@@ -205,10 +307,11 @@ taskListHeaderView assigneeStatus title expanded =
         [ div
             [ class
                 ("tasksHeaderTriangleIcon"
-                    ++ if not expanded then
-                        " closed"
-                       else
-                        ""
+                    ++ (if not expanded then
+                            " closed"
+                        else
+                            ""
+                       )
                 )
             ]
             [ triangle ]
@@ -243,35 +346,35 @@ taskView today assigneeStatusViewIsExpanded datePicker currentDropTarget task =
             Before task.assigneeStatus task.id
 
         classNames =
-            "task " ++ (classNameIfOnTop currentDropTarget dropTarget)
+            "task " ++ classNameIfOnTop currentDropTarget dropTarget
 
         isHeading =
             String.endsWith ":" task.name
     in
-        li
-            ([ class classNames ] ++ DragDrop.draggable DragDropMsg (DragTarget task.assigneeStatus task.id) ++ DragDrop.droppable DragDropMsg dropTarget)
-            (if isHeading then
-                [ div [ class "taskDragHandle" ] [ dragHandle ]
-                , div [ class "taskTitleAsHeader" ] [ h3 [] [ taskTitleView task.id task.assigneeStatus task.name ] ]
+    li
+        ([ class classNames ] ++ DragDrop.draggable DragDropMsg (DragTarget task.assigneeStatus task.id) ++ DragDrop.droppable DragDropMsg dropTarget)
+        (if isHeading then
+            [ div [ class "taskDragHandle" ] [ dragHandle ]
+            , div [ class "taskTitleAsHeader" ] [ h3 [] [ taskTitleView task.id task.assigneeStatus task.name ] ]
+            ]
+         else
+            [ div [ class "taskDragHandle" ] [ dragHandle ]
+            , taskCompletionButton task.id
+            , div [ class "taskWorkspaceAndTitle" ]
+                [ div [ class "taskWorkspace" ]
+                    [ text task.workspace.name ]
+                , taskTitleView task.id task.assigneeStatus task.name
                 ]
-             else
-                [ div [ class "taskDragHandle" ] [ dragHandle ]
-                , taskCompletionButton task.id
-                , div [ class "taskWorkspaceAndTitle" ]
-                    [ div [ class "taskWorkspace" ]
-                        [ text task.workspace.name ]
-                    , taskTitleView task.id task.assigneeStatus task.name
-                    ]
-                ]
-                    ++ (if task.url /= "" then
-                            [ a [ class "taskUrl", target "_blank", href task.url ] [ text "Link" ] ]
-                        else
-                            []
-                       )
-                    ++ [ taskDatePickerView today datePicker task.id task.dueOn
-                       , assigneeStatusView assigneeStatusViewIsExpanded task
-                       ]
-            )
+            ]
+                ++ (if task.url /= "" then
+                        [ a [ class "taskUrl", target "_blank", href task.url ] [ text "Link" ] ]
+                    else
+                        []
+                   )
+                ++ [ taskDatePickerView today datePicker task.id task.dueOn
+                   , assigneeStatusView assigneeStatusViewIsExpanded task
+                   ]
+        )
 
 
 dragHandle : Html Msg
@@ -320,34 +423,33 @@ friendlyDate today date =
         tomorrow =
             Date.Extra.Duration.add Date.Extra.Duration.Day 1 todayDay
     in
-        if Date.Extra.Compare.is Date.Extra.Compare.Before dateDay todayDay then
-            ( "overdue", "Overdue" )
-        else if Date.Extra.Compare.is Date.Extra.Compare.Same dateDay todayDay then
-            ( "today", "Today" )
-        else if Date.Extra.Compare.is Date.Extra.Compare.Same dateDay tomorrow then
-            ( "tomorrow", "Tomorrow" )
-        else if Date.Extra.Compare.is Date.Extra.Compare.SameOrBefore dateDay sevenDays then
-            ( "", format config "%A" date )
-        else if (Date.year todayDay) == (Date.year dateDay) then
-            ( "", format config "%e %B" date )
-        else
-            ( "", format config "%e %B, %Y" date )
+    if Compare.is Compare.Before dateDay todayDay then
+        ( "overdue", "Overdue" )
+    else if Compare.is Compare.Same dateDay todayDay then
+        ( "today", "Today" )
+    else if Compare.is Compare.Same dateDay tomorrow then
+        ( "tomorrow", "Tomorrow" )
+    else if Compare.is Compare.SameOrBefore dateDay sevenDays then
+        ( "", format config "%A" date )
+    else if Date.year todayDay == Date.year dateDay then
+        ( "", format config "%e %B" date )
+    else
+        ( "", format config "%e %B, %Y" date )
 
 
 taskDatePickerView : Date -> DatePicker.DatePicker -> String -> Maybe Date -> Html Msg
 taskDatePickerView today datePicker taskId maybeDueDate =
     div [ class "datePickerContainer" ]
-        [ (case maybeDueDate of
+        [ case maybeDueDate of
             Just dueDate ->
                 let
                     ( className, formattedDate ) =
-                        (friendlyDate today dueDate)
+                        friendlyDate today dueDate
                 in
-                    div [ class ("datePicker" ++ " " ++ className) ] [ text formattedDate ]
+                div [ class ("datePicker" ++ " " ++ className) ] [ text formattedDate ]
 
             Nothing ->
                 text ""
-          )
         , DatePicker.view datePicker
             |> Html.map (ToDatePicker taskId)
         ]
@@ -371,7 +473,7 @@ assigneeStatusView : Bool -> AsanaTask -> Html Msg
 assigneeStatusView expanded task =
     div [ class "taskAssigneeStatusContainer" ]
         [ div [ class "taskAssigneeStatus", onClick (ToggleAssigneeStatusOverlay task.id) ] []
-        , (if expanded then
+        , if expanded then
             ul [ class "taskAssigneeStatusOverlay" ]
                 [ li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Today) ]
                     [ text "Mark for Today" ]
@@ -380,9 +482,8 @@ assigneeStatusView expanded task =
                 , li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Later) ]
                     [ text "Mark for Later" ]
                 ]
-           else
+          else
             div [] []
-          )
         ]
 
 
@@ -390,13 +491,13 @@ fakeDropView : Maybe DropTarget -> DropTarget -> Html Msg
 fakeDropView currentDropTarget dropTarget =
     let
         classNames =
-            "fakeDropView " ++ (classNameIfOnTop currentDropTarget dropTarget)
+            "fakeDropView " ++ classNameIfOnTop currentDropTarget dropTarget
     in
-        li
-            ([ class classNames ] ++ DragDrop.droppable DragDropMsg dropTarget)
-            []
+    li
+        ([ class classNames ] ++ DragDrop.droppable DragDropMsg dropTarget)
+        []
 
 
 buildInfoView : BuildInfo -> Html Msg
 buildInfoView buildInfo =
-    text ("Version: " ++ buildInfo.time ++ " " ++ (String.slice 0 8 buildInfo.version) ++ "-" ++ buildInfo.tier)
+    text ("Version: " ++ buildInfo.time ++ " " ++ String.slice 0 8 buildInfo.version ++ "-" ++ buildInfo.tier)
