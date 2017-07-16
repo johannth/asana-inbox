@@ -40,13 +40,6 @@ type alias AsanaTask =
     }
 
 
-type AsanaTaskMutation
-    = Complete
-    | UpdateAssigneeStatus AssigneeStatus
-    | UpdateDueOn Date
-    | UpdateName String
-
-
 type AssigneeStatus
     = New
     | Today

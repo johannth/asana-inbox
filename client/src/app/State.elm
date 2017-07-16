@@ -104,20 +104,6 @@ toggleExpandedState assigneeStatus currentState =
             { currentState | later = not currentState.later }
 
 
-updateAssigneeStatus : String -> AssigneeStatus -> Dict String AsanaTask -> Dict String AsanaTask
-updateAssigneeStatus taskId assigneeStatus tasks =
-    case Dict.get taskId tasks of
-        Just task ->
-            let
-                updatedTask =
-                    { task | assigneeStatus = assigneeStatus }
-            in
-            Dict.insert taskId updatedTask tasks
-
-        Nothing ->
-            tasks
-
-
 saveApiTokens : List AsanaAccessToken -> Cmd Msg
 saveApiTokens accessTokens =
     LocalStorage.setItem accessTokensStorageKey accessTokens Api.encodeAccessTokens
@@ -366,7 +352,7 @@ update msg model =
                         updatedTask =
                             { task | completed = True }
                     in
-                    { model | tasks = Dict.insert updatedTask.id updatedTask model.tasks } ! [ Api.updateTask model.apiHost model.accessTokens task Complete ]
+                    { model | tasks = Dict.insert updatedTask.id updatedTask model.tasks } ! [ Api.updateTask model.apiHost model.accessTokens updatedTask ]
 
                 Nothing ->
                     model ! []
@@ -391,7 +377,7 @@ update msg model =
                             if String.startsWith "local-" task.id then
                                 Api.createTask model.apiHost model.accessTokens task
                             else
-                                Api.updateTask model.apiHost model.accessTokens task (UpdateName task.name)
+                                Api.updateTask model.apiHost model.accessTokens task
                     in
                     model ! [ command ]
 
@@ -437,7 +423,11 @@ update msg model =
                         ( updatedTask, command ) =
                             case maybeDate of
                                 Just date ->
-                                    ( { task | dueOn = Just date }, Api.updateTask model.apiHost model.accessTokens task (UpdateDueOn date) )
+                                    let
+                                        updatedTask =
+                                            { task | dueOn = Just date }
+                                    in
+                                    ( updatedTask, Api.updateTask model.apiHost model.accessTokens updatedTask )
 
                                 Nothing ->
                                     ( task, Cmd.none )
@@ -511,9 +501,16 @@ update msg model =
                             in
                             case Dict.get dragTarget.targetId model.tasks of
                                 Just task ->
+                                    let
+                                        updatedTask =
+                                            { task | assigneeStatus = newAssigneeStatus }
+
+                                        updatedTasks =
+                                            Dict.insert task.id updatedTask model.tasks
+                                    in
                                     ( moveTaskInTaskList dragTarget dropTarget model.taskList
-                                    , updateAssigneeStatus dragTarget.targetId newAssigneeStatus model.tasks
-                                    , [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus newAssigneeStatus)
+                                    , updatedTasks
+                                    , [ Api.updateTask model.apiHost model.accessTokens updatedTask
                                       ]
                                     )
 
@@ -560,7 +557,7 @@ update msg model =
                             }
                     in
                     updatedModel
-                        ! [ Api.updateTask model.apiHost model.accessTokens task (UpdateAssigneeStatus assigneeStatus), saveTaskList updatedModel.taskList ]
+                        ! [ Api.updateTask model.apiHost model.accessTokens updatedTask, saveTaskList updatedModel.taskList ]
 
                 Nothing ->
                     model ! []

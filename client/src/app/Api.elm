@@ -1,12 +1,12 @@
 module Api exposing (..)
 
-import Json.Decode as Decode
-import Json.Encode as Encode
-import Http
-import Types exposing (..)
 import Date exposing (Date)
 import Date.Extra.Config.Config_en_us exposing (config)
 import Date.Extra.Format as Format exposing (format, isoDateFormat)
+import Http
+import Json.Decode as Decode
+import Json.Encode as Encode
+import Types exposing (..)
 
 
 apiUrl : String -> String -> String
@@ -16,7 +16,7 @@ apiUrl apiHost path =
 
 requestHeaders : List AsanaAccessToken -> List Http.Header
 requestHeaders accessTokens =
-    [ Http.header "Authorization" ("Bearer " ++ (String.join "," (List.map .token accessTokens))) ]
+    [ Http.header "Authorization" ("Bearer " ++ String.join "," (List.map .token accessTokens)) ]
 
 
 getJson : List AsanaAccessToken -> String -> Decode.Decoder a -> Http.Request a
@@ -57,10 +57,10 @@ createTask apiHost accessTokens task =
         postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/") (Http.jsonBody (encodeAsanaTaskForCreation task)) (Decode.field "task" decodeAsanaTask)
 
 
-updateTask : String -> List AsanaAccessToken -> AsanaTask -> AsanaTaskMutation -> Cmd Msg
-updateTask apiHost accessTokens task mutation =
+updateTask : String -> List AsanaAccessToken -> AsanaTask -> Cmd Msg
+updateTask apiHost accessTokens task =
     Http.send TaskUpdated <|
-        postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/" ++ task.id) (Http.jsonBody (encodeAsanaTaskMutation mutation)) (Decode.succeed ())
+        postJson accessTokens (apiUrl apiHost "/api/tasks/" ++ task.workspace.id ++ "/" ++ task.id) (Http.jsonBody (encodeAsanaTaskForUpdate task)) (Decode.succeed ())
 
 
 decodeListOfTasks : Decode.Decoder (List AsanaTask)
@@ -145,20 +145,24 @@ encodeAsanaTaskForCreation task =
         ]
 
 
-encodeAsanaTaskMutation : AsanaTaskMutation -> Encode.Value
-encodeAsanaTaskMutation mutation =
-    case mutation of
-        Complete ->
-            Encode.object [ ( "completed", Encode.bool True ) ]
-
-        UpdateAssigneeStatus status ->
-            Encode.object [ ( "assigneeStatus", encodeAssigneeStatus status ) ]
-
-        UpdateDueOn dueDate ->
-            Encode.object [ ( "dueOn", Encode.string (format config isoDateFormat dueDate) ) ]
-
-        UpdateName name ->
-            Encode.object [ ( "name", Encode.string name ) ]
+encodeAsanaTaskForUpdate : AsanaTask -> Encode.Value
+encodeAsanaTaskForUpdate task =
+    Encode.object
+        ([ ( "completed", Encode.bool task.completed )
+         , ( "assigneeStatus", encodeAssigneeStatus task.assigneeStatus )
+         , ( "name", Encode.string task.name )
+         ]
+            ++ Maybe.withDefault []
+                (Maybe.map
+                    (\dueOn ->
+                        [ ( "dueOn"
+                          , Encode.string (format config isoDateFormat dueOn)
+                          )
+                        ]
+                    )
+                    task.dueOn
+                )
+        )
 
 
 encodeAssigneeStatus : AssigneeStatus -> Encode.Value
@@ -205,12 +209,12 @@ encodeTaskList taskList =
         encodeStringList =
             List.map Encode.string >> Encode.list
     in
-        Encode.object
-            [ ( "new", encodeStringList taskList.new )
-            , ( "today", encodeStringList taskList.today )
-            , ( "upcoming", encodeStringList taskList.upcoming )
-            , ( "later", encodeStringList taskList.later )
-            ]
+    Encode.object
+        [ ( "new", encodeStringList taskList.new )
+        , ( "today", encodeStringList taskList.today )
+        , ( "upcoming", encodeStringList taskList.upcoming )
+        , ( "later", encodeStringList taskList.later )
+        ]
 
 
 decodeTaskList : Decode.Decoder TaskList

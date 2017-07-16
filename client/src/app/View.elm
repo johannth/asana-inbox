@@ -178,12 +178,6 @@ planningDays today =
 
         nextSunday =
             Period.add Period.Day 6 monday
-
-        x =
-            Debug.log "x" monday
-
-        y =
-            Debug.log "y" nextSunday
     in
     ( monday, nextSunday, dayList 6 monday ++ [ nextSunday ] )
 
