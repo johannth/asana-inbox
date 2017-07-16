@@ -107,8 +107,10 @@ accessTokenView accessToken =
 tasksView : Model -> Html Msg
 tasksView model =
     div []
-        [ div [ class "workspaces" ] (List.map (workspaceView model.defaultWorkspace) (Dict.values model.workspaces))
-        , togglePlanningModeButton model.inPlanningMode
+        [ div [ class "controls" ]
+            [ div [ class "workspaces" ] (List.map (workspaceView model.defaultWorkspace) (Dict.values model.workspaces))
+            , togglePlanningModeButton model.inPlanningMode
+            ]
         , if model.inPlanningMode then
             planningModeView model
           else
@@ -118,16 +120,20 @@ tasksView model =
 
 togglePlanningModeButton : Bool -> Html Msg
 togglePlanningModeButton inPlanningMode =
-    label []
-        [ input [ type_ "checkbox", onClick TogglePlanningMode ]
-            []
-        , span []
-            [ text
-                (if inPlanningMode then
-                    "Save"
-                 else
-                    "Plan"
+    div [ class "planningModeToggle" ]
+        [ span [] [ text "Planning mode" ]
+        , label [ class "switch" ]
+            [ input
+                ([ type_ "checkbox", onClick TogglePlanningMode ]
+                    ++ (if inPlanningMode then
+                            [ value "checked" ]
+                        else
+                            []
+                       )
                 )
+                []
+            , span [ class "slider round" ]
+                []
             ]
         ]
 

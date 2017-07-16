@@ -32,8 +32,6 @@ body {
   display: flex;
 }
 
-
-
 .accessToken {
   font-size: 12px;
   padding: 2px 5px 2px 5px;
@@ -71,7 +69,7 @@ body {
 
 .expandAccessTokenForm {
   visibility: hidden;
-  cursor:pointer;
+  cursor: pointer;
   width: 16px;
   height: 16px;
   border: 1px solid rgb(225, 226, 228);
@@ -85,7 +83,7 @@ body {
   color: rgb(225, 226, 228);
 }
 
-.accessTokens:hover .expandAccessTokenForm{
+.accessTokens:hover .expandAccessTokenForm {
   visibility: visible;
 }
 
@@ -100,6 +98,12 @@ body {
 
 .newAccessTokenInput {
   margin-right: 5px;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .workspaces {
@@ -120,6 +124,12 @@ body {
   cursor: default;
   font-weight: bold;
   border-color: #000;
+}
+
+.planningModeToggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .tasks {
@@ -183,13 +193,11 @@ body {
   border-color: #37C597;
 }
 
-.taskCompletionButton:hover svg
-{
+.taskCompletionButton:hover svg {
   fill: #37C597;
 }
 
-.taskCompletionButton svg
-{
+.taskCompletionButton svg {
   margin: auto;
   fill: rgb(225, 226, 228);
   width: 12px;
@@ -211,7 +219,7 @@ body {
 .taskTitle {
   border: 0;
   padding: 0px;
-  flex:1;
+  flex: 1;
   font-size: 12px;
 }
 
@@ -219,9 +227,8 @@ body {
   display: flex;
 }
 
-.taskTitleAsHeader h3{
+.taskTitleAsHeader h3 {
   margin: auto;
-
 }
 
 .taskTitleAsHeader .taskTitle {
@@ -229,7 +236,7 @@ body {
   font-weight: bold;
 }
 
-.taskTitle:focus{
+.taskTitle:focus {
   outline: none;
 }
 
@@ -286,7 +293,6 @@ body {
 
 .task:hover .datePicker {
   display: none;
-
 }
 
 .taskAssigneeStatusContainer {
@@ -350,4 +356,61 @@ body {
   padding-top: 10px;
   margin-top: 20px;
   margin-bottom: 20px;
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 17px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+  display: none;
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 13px;
+  width: 13px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(13px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 17px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
 }
