@@ -79,7 +79,7 @@ init flags location =
             , dragDrop = DragDrop.init
             , expanded = { today = True, new = True, upcoming = False, later = False }
             , datePickers = Dict.empty
-            , expandedAssigneeStatusOverlay = Nothing
+            , expandedActionDialog = Nothing
             }
 
         initialCommands =
@@ -124,8 +124,8 @@ moveTaskInTaskList_ dragTarget dropTarget taskList =
     let
         ( dropAssigneeStatus, maybeDropTaskId, inserter ) =
             case dropTarget of
-                Before assigneeStatus dropTaskId ->
-                    ( assigneeStatus
+                Before mutation dropTaskId ->
+                    ( mutation.assigneeStatus
                     , Just dropTaskId
                     , \taskIdToInsert taskIds ->
                         case taskIds of
@@ -143,8 +143,8 @@ moveTaskInTaskList_ dragTarget dropTarget taskList =
                                     taskIds
                     )
 
-                After assigneeStatus dropTaskId ->
-                    ( assigneeStatus
+                After mutation dropTaskId ->
+                    ( mutation.assigneeStatus
                     , Just dropTaskId
                     , \taskIdToInsert taskIds ->
                         case taskIds of
@@ -162,8 +162,8 @@ moveTaskInTaskList_ dragTarget dropTarget taskList =
                                     taskIds
                     )
 
-                End assigneeStatus ->
-                    ( assigneeStatus, Nothing, \taskIdToInsert taskIds -> taskIds ++ [ taskIdToInsert ] )
+                End mutation ->
+                    ( mutation.assigneeStatus, Nothing, \taskIdToInsert taskIds -> taskIds ++ [ taskIdToInsert ] )
     in
     if Just dragTarget.targetId == maybeDropTaskId then
         taskList
@@ -398,7 +398,7 @@ update msg model =
                             DatePicker.init defaultSettings
 
                         taskList =
-                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (After assigneeStatus taskId) model.taskList
+                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (After { assigneeStatus = assigneeStatus, dueOn = Nothing } taskId) model.taskList
                     in
                     { model
                         | tasks = Dict.insert task.id task model.tasks
@@ -495,15 +495,11 @@ update msg model =
                 ( taskList, tasks, commands ) =
                     case result of
                         Just ( dragTarget, dropTarget ) ->
-                            let
-                                newAssigneeStatus =
-                                    assigneeStatusFromDropTarget dropTarget
-                            in
                             case Dict.get dragTarget.targetId model.tasks of
                                 Just task ->
                                     let
                                         updatedTask =
-                                            { task | assigneeStatus = newAssigneeStatus }
+                                            applyMutations (mutationFromDropTarget dropTarget) task
 
                                         updatedTasks =
                                             Dict.insert task.id updatedTask model.tasks
@@ -531,29 +527,29 @@ update msg model =
 
         ToggleAssigneeStatusOverlay taskId ->
             { model
-                | expandedAssigneeStatusOverlay =
-                    if model.expandedAssigneeStatusOverlay == Just taskId then
+                | expandedActionDialog =
+                    if model.expandedActionDialog == Just taskId then
                         Nothing
                     else
                         Just taskId
             }
                 ! []
 
-        SetAssigneeStatus taskId assigneeStatus ->
+        ApplyMutation taskId mutation ->
             case Dict.get taskId model.tasks of
                 Just task ->
                     let
                         updatedTask =
-                            { task | assigneeStatus = assigneeStatus }
+                            applyMutations mutation task
 
                         taskList =
-                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (End assigneeStatus) model.taskList
+                            moveTaskInTaskList (DragTarget task.assigneeStatus task.id) (End { assigneeStatus = mutation.assigneeStatus, dueOn = Nothing }) model.taskList
 
                         updatedModel =
                             { model
                                 | tasks = Dict.insert taskId updatedTask model.tasks
                                 , taskList = taskList
-                                , expandedAssigneeStatusOverlay = Nothing
+                                , expandedActionDialog = Nothing
                             }
                     in
                     updatedModel

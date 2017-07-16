@@ -61,39 +61,59 @@ type alias DragTarget =
     }
 
 
+type alias AsanaTaskMutation =
+    { assigneeStatus : AssigneeStatus
+    , dueOn : Maybe (Maybe Date)
+    }
+
+
 type DropTarget
-    = Before AssigneeStatus String
-    | After AssigneeStatus String
-    | End AssigneeStatus
+    = Before AsanaTaskMutation String
+    | After AsanaTaskMutation String
+    | End AsanaTaskMutation
 
 
 equalDropTarget : DropTarget -> DropTarget -> Bool
 equalDropTarget a b =
     case ( a, b ) of
-        ( Before assigneeStatusA targetIdA, Before assigneeStatusB targetIdB ) ->
-            assigneeStatusA == assigneeStatusB && targetIdA == targetIdB
+        ( Before mutationsA targetIdA, Before mutationsB targetIdB ) ->
+            mutationsA == mutationsB && targetIdA == targetIdB
 
-        ( After assigneeStatusA targetIdA, After assigneeStatusB targetIdB ) ->
-            assigneeStatusA == assigneeStatusB && targetIdA == targetIdB
+        ( After mutationsA targetIdA, After mutationsB targetIdB ) ->
+            mutationsA == mutationsB && targetIdA == targetIdB
 
-        ( End assigneeStatusA, End assigneeStatusB ) ->
-            assigneeStatusA == assigneeStatusB
+        ( End mutationsA, End mutationsB ) ->
+            mutationsA == mutationsB
 
         _ ->
             False
 
 
-assigneeStatusFromDropTarget : DropTarget -> AssigneeStatus
-assigneeStatusFromDropTarget dropTarget =
+applyMutations : AsanaTaskMutation -> AsanaTask -> AsanaTask
+applyMutations mutation task =
+    let
+        updatedTask =
+            { task | assigneeStatus = mutation.assigneeStatus }
+    in
+    case mutation.dueOn of
+        Just dueOn ->
+            { updatedTask | dueOn = dueOn }
+
+        Nothing ->
+            updatedTask
+
+
+mutationFromDropTarget : DropTarget -> AsanaTaskMutation
+mutationFromDropTarget dropTarget =
     case dropTarget of
-        Before assigneeStatus _ ->
-            assigneeStatus
+        Before mutation _ ->
+            mutation
 
-        After assigneeStatus _ ->
-            assigneeStatus
+        After mutation _ ->
+            mutation
 
-        End assigneeStatus ->
-            assigneeStatus
+        End mutation ->
+            mutation
 
 
 type alias TaskList =
@@ -120,7 +140,7 @@ type alias Model =
     , dragDrop : DragDrop.Model DragTarget DropTarget
     , expanded : ExpandedState
     , datePickers : Dict String DatePicker.DatePicker
-    , expandedAssigneeStatusOverlay : Maybe String
+    , expandedActionDialog : Maybe String
     }
 
 
@@ -145,7 +165,7 @@ type Msg
     | ReceiveItem LocalStorage.LocalStorageItem
     | ToDatePicker String DatePicker.Msg
     | ToggleAssigneeStatusOverlay String
-    | SetAssigneeStatus String AssigneeStatus
+    | ApplyMutation String AsanaTaskMutation
     | SetDefaultWorkspace String
     | TogglePlanningMode
 

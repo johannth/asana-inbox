@@ -182,8 +182,26 @@ planningDays today =
     ( monday, nextSunday, dayList 6 monday ++ [ nextSunday ] )
 
 
+planningModeActionDialogView : List ( Maybe Date, String, AsanaTaskMutation, List String ) -> Bool -> AsanaTask -> Html Msg
+planningModeActionDialogView sectionDays expanded task =
+    div [ class "taskAssigneeStatusContainer" ]
+        [ div [ class "taskAssigneeStatus", onClick (ToggleAssigneeStatusOverlay task.id) ] []
+        , if expanded then
+            ul [ class "taskAssigneeStatusOverlay" ]
+                (List.map
+                    (\( day, title, mutation, _ ) ->
+                        li [ class "taskAssigneeStatusOverlayItem", onClick (ApplyMutation task.id mutation) ]
+                            [ text title ]
+                    )
+                    sectionDays
+                )
+          else
+            div [] []
+        ]
+
+
 planningModeView : Model -> Html Msg
-planningModeView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
+planningModeView { today, accessTokenFormExpanded, expandedActionDialog, taskList, tasks, dragDrop, expanded, datePickers } =
     case taskList of
         Just taskList ->
             let
@@ -193,46 +211,45 @@ planningModeView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay
                 ( monday, nextSunday, days ) =
                     planningDays today
 
-                sectionDays =
-                    [ Nothing ] ++ List.map Just days
-
                 allPossibleTriageTasks =
                     Dict.values tasks
                         |> List.filter (\task -> compareIsIgnoringTime Compare.SameOrBefore (Maybe.withDefault nextSunday task.dueOn) nextSunday)
                         |> List.filter (\task -> not (String.endsWith ":" task.name))
 
+                sectionDays =
+                    ([ Nothing ] ++ List.map Just days)
+                        |> List.map
+                            (\day ->
+                                case day of
+                                    Just day ->
+                                        let
+                                            assigneeStatus =
+                                                if compareIsIgnoringTime Compare.Same day nextSunday then
+                                                    Later
+                                                else
+                                                    Upcoming
+
+                                            mutation =
+                                                { assigneeStatus = assigneeStatus, dueOn = Just (Just day) }
+                                        in
+                                        ( Just day, format config "%A" day, mutation, List.filter (\task -> Maybe.withDefault False (Maybe.map (compareIsIgnoringTime Compare.Same day) task.dueOn)) allPossibleTriageTasks |> List.map .id )
+
+                                    Nothing ->
+                                        ( Nothing, "Triage", { assigneeStatus = Today, dueOn = Just Nothing }, List.filter (\task -> Maybe.withDefault True (Maybe.map (compareIsIgnoringTime Compare.After monday) task.dueOn)) allPossibleTriageTasks |> List.map .id )
+                            )
+
+                actionDialogView =
+                    \task ->
+                        planningModeActionDialogView sectionDays (Just task.id == expandedActionDialog) task
+
                 sections =
                     List.map
-                        (\day ->
-                            case day of
-                                Just day ->
-                                    let
-                                        taskIdsForDay =
-                                            List.filter (\task -> Maybe.withDefault False (Maybe.map (compareIsIgnoringTime Compare.Same day) task.dueOn)) allPossibleTriageTasks |> List.map .id
-
-                                        tasksForSection =
-                                            expandTasks tasks datePickers taskIdsForDay
-
-                                        title =
-                                            format config "%A" day
-
-                                        assigneeStatus =
-                                            if compareIsIgnoringTime Compare.Same day nextSunday then
-                                                Later
-                                            else
-                                                Upcoming
-                                    in
-                                    taskListSegmentView { assigneeStatus = assigneeStatus, title = title, hideOnEmpty = False } today expandedAssigneeStatusOverlay tasksForSection currentDropTarget True
-
-                                Nothing ->
-                                    let
-                                        taskIdsForDay =
-                                            List.filter (\task -> Maybe.withDefault True (Maybe.map (compareIsIgnoringTime Compare.After monday) task.dueOn)) allPossibleTriageTasks |> List.map .id
-
-                                        tasksForSection =
-                                            expandTasks tasks datePickers taskIdsForDay
-                                    in
-                                    taskListSegmentView { assigneeStatus = Today, title = "Triage", hideOnEmpty = False } today expandedAssigneeStatusOverlay tasksForSection currentDropTarget True
+                        (\( day, title, mutation, taskIdsForDay ) ->
+                            let
+                                tasksForSection =
+                                    expandTasks tasks datePickers taskIdsForDay
+                            in
+                            taskListSegmentView { title = title, hideOnEmpty = False } mutation today actionDialogView tasksForSection currentDropTarget True
                         )
                         sectionDays
             in
@@ -243,7 +260,7 @@ planningModeView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay
 
 
 taskListView : Model -> Html Msg
-taskListView { today, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
+taskListView { today, expandedActionDialog, taskList, tasks, dragDrop, expanded, datePickers } =
     case taskList of
         Just taskList ->
             let
@@ -261,12 +278,16 @@ taskListView { today, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, 
 
                 laterTasks =
                     expandTasks tasks datePickers taskList.later
+
+                actionDialogView =
+                    \task ->
+                        assigneeStatusActionDialogView (Just task.id == expandedActionDialog) task
             in
             div []
-                [ taskListSegmentView { assigneeStatus = New, title = "New", hideOnEmpty = True } today expandedAssigneeStatusOverlay newTasks currentDropTarget expanded.new
-                , taskListSegmentView { assigneeStatus = Today, title = "Today", hideOnEmpty = False } today expandedAssigneeStatusOverlay todayTasks currentDropTarget expanded.today
-                , taskListSegmentView { assigneeStatus = Upcoming, title = "Upcoming", hideOnEmpty = False } today expandedAssigneeStatusOverlay upcomingTasks currentDropTarget expanded.upcoming
-                , taskListSegmentView { assigneeStatus = Later, title = "Later", hideOnEmpty = False } today expandedAssigneeStatusOverlay laterTasks currentDropTarget expanded.later
+                [ taskListSegmentView { title = "New", hideOnEmpty = True } { assigneeStatus = New, dueOn = Nothing } today actionDialogView newTasks currentDropTarget expanded.new
+                , taskListSegmentView { title = "Today", hideOnEmpty = False } { assigneeStatus = Today, dueOn = Nothing } today actionDialogView todayTasks currentDropTarget expanded.today
+                , taskListSegmentView { title = "Upcoming", hideOnEmpty = False } { assigneeStatus = Upcoming, dueOn = Nothing } today actionDialogView upcomingTasks currentDropTarget expanded.upcoming
+                , taskListSegmentView { title = "Later", hideOnEmpty = False } { assigneeStatus = Later, dueOn = Nothing } today actionDialogView laterTasks currentDropTarget expanded.later
                 ]
 
         Nothing ->
@@ -280,36 +301,32 @@ filterTasksByStatus assigneeStatus tasks =
 
 
 type alias TaskListSegmentConfig =
-    { assigneeStatus : AssigneeStatus
-    , title : String
+    { title : String
     , hideOnEmpty : Bool
     }
 
 
-taskListSegmentView : TaskListSegmentConfig -> Date -> Maybe String -> List ( AsanaTask, DatePicker.DatePicker ) -> Maybe DropTarget -> Bool -> Html Msg
-taskListSegmentView config today expandedAssigneeStatusOverlay tasks currentDropTarget expanded =
+taskListSegmentView : TaskListSegmentConfig -> AsanaTaskMutation -> Date -> (AsanaTask -> Html Msg) -> List ( AsanaTask, DatePicker.DatePicker ) -> Maybe DropTarget -> Bool -> Html Msg
+taskListSegmentView config mutation today actionDialogView tasks currentDropTarget expanded =
     let
-        hasExpandedAssigneeStatusOverlay =
-            \task -> Just task.id == expandedAssigneeStatusOverlay
-
         taskViews =
             if expanded then
                 List.filter (\( task, _ ) -> not task.completed) tasks
                     |> List.map
                         (\( task, datePicker ) ->
-                            taskView today (hasExpandedAssigneeStatusOverlay task) datePicker currentDropTarget task
+                            taskView today actionDialogView datePicker currentDropTarget mutation task
                         )
             else
                 []
 
         dropView =
-            fakeDropView currentDropTarget (End config.assigneeStatus)
+            fakeDropView currentDropTarget (End mutation)
     in
     if config.hideOnEmpty && List.length tasks == 0 then
         text ""
     else
         div []
-            [ taskListHeaderView config.assigneeStatus config.title expanded
+            [ taskListHeaderView mutation.assigneeStatus config.title expanded
             , ul [ class "tasks" ]
                 (taskViews ++ [ dropView ])
             ]
@@ -354,11 +371,11 @@ classNameIfOnTop maybeCurrentDropTarget dropTarget =
             ""
 
 
-taskView : Date -> Bool -> DatePicker.DatePicker -> Maybe DropTarget -> AsanaTask -> Html Msg
-taskView today assigneeStatusViewIsExpanded datePicker currentDropTarget task =
+taskView : Date -> (AsanaTask -> Html Msg) -> DatePicker.DatePicker -> Maybe DropTarget -> AsanaTaskMutation -> AsanaTask -> Html Msg
+taskView today actionDialogView datePicker currentDropTarget mutation task =
     let
         dropTarget =
-            Before task.assigneeStatus task.id
+            Before mutation task.id
 
         classNames =
             "task " ++ classNameIfOnTop currentDropTarget dropTarget
@@ -387,7 +404,7 @@ taskView today assigneeStatusViewIsExpanded datePicker currentDropTarget task =
                         []
                    )
                 ++ [ taskDatePickerView today datePicker task.id task.dueOn
-                   , assigneeStatusView assigneeStatusViewIsExpanded task
+                   , actionDialogView task
                    ]
         )
 
@@ -484,17 +501,17 @@ onEnterPress tagger =
         )
 
 
-assigneeStatusView : Bool -> AsanaTask -> Html Msg
-assigneeStatusView expanded task =
+assigneeStatusActionDialogView : Bool -> AsanaTask -> Html Msg
+assigneeStatusActionDialogView expanded task =
     div [ class "taskAssigneeStatusContainer" ]
         [ div [ class "taskAssigneeStatus", onClick (ToggleAssigneeStatusOverlay task.id) ] []
         , if expanded then
             ul [ class "taskAssigneeStatusOverlay" ]
-                [ li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Today) ]
+                [ li [ class "taskAssigneeStatusOverlayItem", onClick (ApplyMutation task.id { assigneeStatus = Today, dueOn = Nothing }) ]
                     [ text "Mark for Today" ]
-                , li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Upcoming) ]
+                , li [ class "taskAssigneeStatusOverlayItem", onClick (ApplyMutation task.id { assigneeStatus = Upcoming, dueOn = Nothing }) ]
                     [ text "Mark for Upcoming" ]
-                , li [ class "taskAssigneeStatusOverlayItem", onClick (SetAssigneeStatus task.id Later) ]
+                , li [ class "taskAssigneeStatusOverlayItem", onClick (ApplyMutation task.id { assigneeStatus = Later, dueOn = Nothing }) ]
                     [ text "Mark for Later" ]
                 ]
           else
