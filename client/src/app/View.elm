@@ -5,8 +5,9 @@ import Date.Extra.Compare as Compare
 import Date.Extra.Config.Config_en_us exposing (config)
 import Date.Extra.Create exposing (dateFromFields)
 import Date.Extra.Duration
-import Date.Extra.Field as Field exposing (fieldToDate)
+import Date.Extra.Field as Field exposing (fieldToDateClamp)
 import Date.Extra.Format as Format exposing (format, formatUtc, isoMsecOffsetFormat)
+import Date.Extra.Period as Period
 import Date.Extra.Utils exposing (dayList)
 import DatePicker
 import Dict exposing (Dict)
@@ -164,19 +165,39 @@ compareIsIgnoringTime comparison date1 date2 =
     Compare.is comparison normalizedDate1 normalizedDate2
 
 
+planningDays : Date -> ( Date, Date, List Date )
+planningDays today =
+    let
+        monday =
+            case Date.dayOfWeek today of
+                Date.Sun ->
+                    Period.add Period.Day 1 today
+
+                _ ->
+                    fieldToDateClamp (Field.DayOfWeek ( Date.Mon, Date.Mon )) today
+
+        nextSunday =
+            Period.add Period.Day 6 monday
+
+        x =
+            Debug.log "x" monday
+
+        y =
+            Debug.log "y" nextSunday
+    in
+    ( monday, nextSunday, dayList 6 monday ++ [ nextSunday ] )
+
+
 planningModeView : Model -> Html Msg
 planningModeView { today, accessTokenFormExpanded, expandedAssigneeStatusOverlay, taskList, tasks, dragDrop, expanded, datePickers } =
-    case ( taskList, fieldToDate (Field.DayOfWeek ( Date.Mon, Date.Mon )) today ) of
-        ( Just taskList, Just monday ) ->
+    case taskList of
+        Just taskList ->
             let
                 currentDropTarget =
                     DragDrop.getDropId dragDrop
 
-                days =
-                    dayList 7 monday
-
-                nextSunday =
-                    Maybe.withDefault monday (List.head (List.reverse days))
+                ( monday, nextSunday, days ) =
+                    planningDays today
 
                 sectionDays =
                     [ Nothing ] ++ List.map Just days
