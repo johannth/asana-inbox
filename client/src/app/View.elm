@@ -173,19 +173,16 @@ compareIsIgnoringTime comparison date1 date2 =
 
 planningDays : Date -> ( Date, Date, List Date )
 planningDays today =
-    let
-        monday =
-            case Date.dayOfWeek today of
-                Date.Sun ->
-                    Period.add Period.Day 1 today
+    case Date.dayOfWeek today of
+        Date.Sun ->
+            ( today, Period.add Period.Day 7 today, dayList 8 today )
 
-                _ ->
+        _ ->
+            let
+                monday =
                     fieldToDateClamp (Field.DayOfWeek ( Date.Mon, Date.Mon )) today
-
-        nextSunday =
-            Period.add Period.Day 6 monday
-    in
-    ( monday, nextSunday, dayList 6 monday ++ [ nextSunday ] )
+            in
+            ( monday, Period.add Period.Day 6 today, dayList 7 monday )
 
 
 planningModeActionDialogView : List ( Maybe Date, String, AsanaTaskMutation, List String ) -> Bool -> AsanaTask -> Html Msg
@@ -214,7 +211,7 @@ planningModeView { today, accessTokenFormExpanded, expandedActionDialog, taskLis
                 currentDropTarget =
                     DragDrop.getDropId dragDrop
 
-                ( monday, nextSunday, days ) =
+                ( firstDay, nextSunday, days ) =
                     planningDays today
 
                 allPossibleTriageTasks =
@@ -237,11 +234,17 @@ planningModeView { today, accessTokenFormExpanded, expandedActionDialog, taskLis
 
                                             mutation =
                                                 { assigneeStatus = assigneeStatus, dueOn = Just (Just day) }
+
+                                            title =
+                                                if compareIsIgnoringTime Compare.Same day today then
+                                                    "Today"
+                                                else
+                                                    format config "%A" day
                                         in
-                                        ( Just day, format config "%A" day, mutation, List.filter (\task -> Maybe.withDefault False (Maybe.map (compareIsIgnoringTime Compare.Same day) task.dueOn)) allPossibleTriageTasks |> List.map .id )
+                                        ( Just day, title, mutation, List.filter (\task -> Maybe.withDefault False (Maybe.map (compareIsIgnoringTime Compare.Same day) task.dueOn)) allPossibleTriageTasks |> List.map .id )
 
                                     Nothing ->
-                                        ( Nothing, "Triage", { assigneeStatus = Today, dueOn = Just Nothing }, List.filter (\task -> Maybe.withDefault True (Maybe.map (compareIsIgnoringTime Compare.After monday) task.dueOn)) allPossibleTriageTasks |> List.map .id )
+                                        ( Nothing, "Triage", { assigneeStatus = Today, dueOn = Just Nothing }, List.filter (\task -> Maybe.withDefault True (Maybe.map (compareIsIgnoringTime Compare.After firstDay) task.dueOn)) allPossibleTriageTasks |> List.map .id )
                             )
 
                 actionDialogView =
