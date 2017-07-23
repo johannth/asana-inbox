@@ -172,7 +172,8 @@ encodeAssigneeStatus assigneeStatus =
             Encode.string "today"
 
         New ->
-            Encode.string "new"
+            -- It's not accepted to create a task with assigneeStatus == new
+            Encode.string "today"
 
         Upcoming ->
             Encode.string "upcoming"
